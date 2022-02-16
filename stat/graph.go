@@ -4,18 +4,20 @@ import (
 	"fmt"
 	"go/token"
 	"path/filepath"
+	"strings"
 
 	"github.com/berquerant/gotypegraph/use"
 	"github.com/berquerant/gotypegraph/util"
+	"golang.org/x/tools/go/packages"
 )
 
 type Graph interface {
 	Add(pair *Pair)
-	PkgToNodes() map[string][]*NodeWeight
+	PkgToNodes() map[PkgKey][]*NodeWeight
 	Deps() []*Dep
 	PkgDeps() []*PkgDep
 	Pkgs() []*PkgWeight
-	PkgIOs() map[string]*PkgIO
+	PkgIOs() map[PkgKey]*PkgIO
 	NodeIOs() *NodeIOSet
 }
 
@@ -58,20 +60,20 @@ func (s *graph) PkgDeps() []*PkgDep {
 	return set.slice()
 }
 
-func (s *graph) PkgToNodes() map[string][]*NodeWeight {
+func (s *graph) PkgToNodes() map[PkgKey][]*NodeWeight {
 	set := newNodeWeightSet()
 	for _, pair := range s.pairs {
 		set.add(pair.Ref)
 		set.add(pair.Def)
 	}
-	d := map[string][]*NodeWeight{}
+	d := map[PkgKey][]*NodeWeight{}
 	for _, x := range set.slice() {
-		d[x.Node.Pkg] = append(d[x.Node.Pkg], x)
+		d[x.Node.PkgKey] = append(d[x.Node.PkgKey], x)
 	}
 	return d
 }
 
-func (s *graph) PkgIOs() map[string]*PkgIO {
+func (s *graph) PkgIOs() map[PkgKey]*PkgIO {
 	set := newPkgIOSet()
 	for _, pair := range s.pairs {
 		set.add(pair)
@@ -92,19 +94,83 @@ func (s *graph) NodeIOs() *NodeIOSet {
 type (
 	// Node is a symbol.
 	Node struct {
-		Pkg      string
 		Name     string
 		Position token.Position
 		Type     use.NodeType
 		// Recv is the receiver type name iff the node is a method.
-		Recv string
+		Recv   string
+		PkgKey PkgKey
 	}
 	// Pair is a dependency.
 	Pair struct {
 		Ref *Node
 		Def *Node
 	}
+	// PkgKey identifies a package by package name and package dir.
+	PkgKey struct {
+		pkgName string
+		pkgDir  string
+	}
 )
+
+// NewPkgKey returns a new PkgKey.
+func NewPkgKey(pkg *packages.Package, pos token.Pos) PkgKey {
+	if pkg == nil {
+		return PkgKey{}
+	}
+	return PkgKey{
+		pkgName: pkg.Name,
+		pkgDir:  filepath.Dir(pkg.Fset.Position(pos).Filename),
+	}
+}
+
+const unknownPkgKey = "unknown-package-key"
+
+func (s *PkgKey) LString() string {
+	if s == nil {
+		return unknownPkgKey
+	}
+	if s.pkgDir == "" {
+		return s.pkgName
+	}
+	xs := strings.Split(s.pkgDir, "/")
+	return fmt.Sprintf("%s/%s", xs[len(xs)-1], s.pkgName)
+}
+
+func (s *PkgKey) String() string {
+	if s == nil {
+		return unknownPkgKey
+	}
+	if s.pkgDir == "" {
+		return s.pkgName
+	}
+	return fmt.Sprintf("%s/%s", s.pkgDir, s.pkgName)
+}
+
+// Key returns a string for unique dot node id.
+func (s *PkgKey) Key() string {
+	if s == nil {
+		return unknownPkgKey
+	}
+	if s.pkgDir == "" {
+		return s.pkgName
+	}
+	return fmt.Sprintf("%s__%s", s.pkgName, util.AsDotID(s.pkgDir))
+}
+
+func (s *PkgKey) Pkg() string {
+	if s == nil {
+		return ""
+	}
+	return s.pkgName
+}
+
+func (s *PkgKey) Dir() string {
+	if s == nil {
+		return ""
+	}
+	return s.pkgDir
+}
 
 const unknownPositionFilename = "unknown"
 
@@ -129,14 +195,13 @@ func NewPair(result *use.Result) *Pair {
 	// TODO: add struct name that field belongs
 	return &Pair{
 		Ref: &Node{
-			Pkg:      r.Pkg.Name,
 			Name:     r.NodeName(),
 			Position: r.Pkg.Fset.Position(r.Node.Pos()),
 			Type:     r.NodeType(),
 			Recv:     r.Recv(),
+			PkgKey:   NewPkgKey(r.Pkg, r.Node.Pos()),
 		},
 		Def: &Node{
-			Pkg:  d.PkgName,
 			Name: d.NodeName(),
 			Position: func() token.Position {
 				if d.Pkg == nil {
@@ -146,13 +211,21 @@ func NewPair(result *use.Result) *Pair {
 			}(),
 			Type: d.NodeType(),
 			Recv: d.Recv(),
+			PkgKey: func() PkgKey {
+				if d.Pkg == nil {
+					return PkgKey{
+						pkgName: d.PkgName,
+					}
+				}
+				return NewPkgKey(d.Pkg, d.Obj.Pos())
+			}(),
 		},
 	}
 }
 
-func (s *Node) id() string    { return fmt.Sprintf("%s.%s", s.Pkg, s.Name) }
+func (s *Node) id() string    { return fmt.Sprintf("%s.%s", s.PkgKey.Key(), s.Name) }
 func (s *Pair) id() string    { return fmt.Sprintf("%s>%s", s.Ref.id(), s.Def.id()) }
-func (s *Pair) pkgID() string { return fmt.Sprintf("%s>%s", s.Ref.Pkg, s.Def.Pkg) }
+func (s *Pair) pkgID() string { return fmt.Sprintf("%s>%s", s.Ref.PkgKey.Key(), s.Def.PkgKey.Key()) }
 
 /* result data types */
 
@@ -164,8 +237,8 @@ type (
 	}
 	// PkgDep is a package level dependency.
 	PkgDep struct {
-		Ref    string
-		Def    string
+		Ref    PkgKey
+		Def    PkgKey
 		Weight int
 	}
 	// NodeWeight is a node level frequency of appearance.
@@ -175,7 +248,7 @@ type (
 	}
 	// PkgWeight is a package level frequency of appearance.
 	PkgWeight struct {
-		Pkg      string
+		PkgKey   PkgKey
 		Weight   int
 		Position string
 	}
@@ -189,7 +262,7 @@ type (
 	}
 
 	PkgIO struct {
-		Pkg        string
+		PkgKey     PkgKey
 		In         int
 		Out        int
 		Position   string
@@ -209,7 +282,7 @@ type (
 		d map[string]*NodeIO
 	}
 	pkgIOSet struct {
-		d map[string]*PkgIO
+		d map[PkgKey]*PkgIO
 	}
 )
 
@@ -217,7 +290,7 @@ type (
 
 func newPkgIOSet() *pkgIOSet {
 	return &pkgIOSet{
-		d: map[string]*PkgIO{},
+		d: map[PkgKey]*PkgIO{},
 	}
 }
 
@@ -226,30 +299,30 @@ func (s *pkgIOSet) add(pair *Pair) {
 		r = pair.Ref
 		d = pair.Def
 	)
-	if x, found := s.d[r.Pkg]; found {
+	if x, found := s.d[r.PkgKey]; found {
 		x.Out++
-		x.outUniqSet.Add(d.Pkg)
+		x.outUniqSet.Add(r.PkgKey.Key())
 	} else {
-		s.d[r.Pkg] = &PkgIO{ // FIXME: more unique key
-			Pkg:        r.Pkg,
+		s.d[r.PkgKey] = &PkgIO{
+			PkgKey:     r.PkgKey,
 			Out:        1,
 			In:         0,
 			Position:   positionToDir(r.Position),
-			outUniqSet: util.NewStringSet().Add(d.Pkg),
+			outUniqSet: util.NewStringSet().Add(d.PkgKey.Key()),
 			inUniqSet:  util.NewStringSet(),
 		}
 	}
-	if x, found := s.d[d.Pkg]; found {
+	if x, found := s.d[d.PkgKey]; found {
 		x.In++
-		x.inUniqSet.Add(r.Pkg)
+		x.inUniqSet.Add(r.PkgKey.Key())
 	} else {
-		s.d[d.Pkg] = &PkgIO{ // FIXME: more unique key
-			Pkg:        d.Pkg,
+		s.d[d.PkgKey] = &PkgIO{
+			PkgKey:     d.PkgKey,
 			Out:        0,
 			In:         1,
 			Position:   positionToDir(d.Position),
 			outUniqSet: util.NewStringSet(),
-			inUniqSet:  util.NewStringSet().Add(r.Pkg),
+			inUniqSet:  util.NewStringSet().Add(r.PkgKey.Key()),
 		}
 	}
 }
@@ -307,23 +380,23 @@ type (
 		d map[string]*PkgDep
 	}
 	pkgWeightSet struct {
-		d map[string]*PkgWeight
+		d map[PkgKey]*PkgWeight
 	}
 )
 
 func newPkgWeightSet() *pkgWeightSet {
 	return &pkgWeightSet{
-		d: map[string]*PkgWeight{},
+		d: map[PkgKey]*PkgWeight{},
 	}
 }
 
 func (s *pkgWeightSet) add(node *Node) {
-	if n, ok := s.d[node.Pkg]; ok {
+	if n, ok := s.d[node.PkgKey]; ok {
 		n.Weight++
 		return
 	}
-	s.d[node.Pkg] = &PkgWeight{ // FIXME: more unique key
-		Pkg:      node.Pkg,
+	s.d[node.PkgKey] = &PkgWeight{
+		PkgKey:   node.PkgKey,
 		Weight:   1,
 		Position: positionToDir(node.Position),
 	}
@@ -410,9 +483,9 @@ func (s *pkgDepSet) add(pair *Pair) {
 		d.Weight++
 		return
 	}
-	s.d[pair.pkgID()] = &PkgDep{ // FIXME: more unique key
-		Ref:    pair.Ref.Pkg,
-		Def:    pair.Def.Pkg,
+	s.d[pair.pkgID()] = &PkgDep{
+		Ref:    pair.Ref.PkgKey,
+		Def:    pair.Def.PkgKey,
 		Weight: 1,
 	}
 }

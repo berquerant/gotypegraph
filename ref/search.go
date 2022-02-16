@@ -56,13 +56,6 @@ type localSearcherSet struct {
 	searchers map[string]LocalSearcher
 }
 
-func (s *localSearcherSet) Add(localSearcher LocalSearcher) {
-	pkgID := localSearcher.Set().Pkg.ID
-	if _, found := s.searchers[pkgID]; !found {
-		s.searchers[pkgID] = localSearcher
-	}
-}
-
 func (s *localSearcherSet) Get(pkg *packages.Package) (LocalSearcher, bool) {
 	x, ok := s.searchers[pkg.ID]
 	return x, ok

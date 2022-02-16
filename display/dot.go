@@ -31,30 +31,30 @@ func (s *statDotWriter) Write(result *use.Result) error {
 
 func (*statDotWriter) newTooltip(pkg *stat.PkgWeight, deps []*stat.PkgDep) string {
 	var b util.StringBuilder
-	b.Writeln(pkg.Pkg)
+	b.Writeln(pkg.PkgKey.LString())
 	b.Writeln(pkg.Position)
 	var (
 		inDeps  = []*stat.PkgDep{}
 		outDeps = []*stat.PkgDep{}
 	)
 	for _, dep := range deps {
-		if dep.Def == pkg.Pkg {
+		if dep.Def == pkg.PkgKey {
 			inDeps = append(inDeps, dep)
 		}
-		if dep.Ref == pkg.Pkg {
+		if dep.Ref == pkg.PkgKey {
 			outDeps = append(outDeps, dep)
 		}
 	}
-	sort.Slice(inDeps, func(i, j int) bool { return inDeps[i].Ref < inDeps[j].Ref })
-	sort.Slice(outDeps, func(i, j int) bool { return outDeps[i].Def < outDeps[j].Def })
+	sort.Slice(inDeps, func(i, j int) bool { return inDeps[i].Ref.String() < inDeps[j].Ref.String() })
+	sort.Slice(outDeps, func(i, j int) bool { return outDeps[i].Def.String() < outDeps[j].Def.String() })
 
 	b.Writeln("In:")
 	for _, dep := range inDeps {
-		b.Writelnf("%s %d", dep.Ref, dep.Weight)
+		b.Writelnf("%s %d", dep.Ref.LString(), dep.Weight)
 	}
 	b.Writeln("Out:")
 	for _, dep := range outDeps {
-		b.Writelnf("%s %d", dep.Def, dep.Weight)
+		b.Writelnf("%s %d", dep.Def.LString(), dep.Weight)
 	}
 	return b.String()
 }
@@ -69,10 +69,10 @@ func (s *statDotWriter) build() string {
 	)
 	for _, pkg := range pkgs {
 		var (
-			n     = dot.NewNode(pkg.Pkg)
-			ios   = pkgIOs[pkg.Pkg]
+			n     = dot.NewNode(pkg.PkgKey.Key())
+			ios   = pkgIOs[pkg.PkgKey]
 			label = fmt.Sprintf("<\n%s\n>", generateNodeLabelHTML(
-				"package", pkg.Pkg,
+				"package", pkg.PkgKey.LString(),
 				ios.In, ios.Out, ios.UniqIn(), ios.UniqOut()))
 			tooltip  = s.newTooltip(pkg, deps)
 			fontsize = strconv.Itoa(fontsizeRanking.get(pkg.Weight))
@@ -90,8 +90,8 @@ func (s *statDotWriter) build() string {
 	)
 	for _, dep := range deps {
 		var (
-			e        = dot.NewEdge(dep.Ref, dep.Def)
-			tooltip  = fmt.Sprintf("%s -> %s [%d]", dep.Ref, dep.Def, dep.Weight)
+			e        = dot.NewEdge(dep.Ref.Key(), dep.Def.Key())
+			tooltip  = fmt.Sprintf("%s -> %s [%d]", dep.Ref.String(), dep.Def.String(), dep.Weight)
 			penwidth = strconv.Itoa(penwidthRanking.get(dep.Weight))
 			weight   = strconv.Itoa(weightRanking.get(dep.Weight))
 		)
@@ -162,12 +162,12 @@ func (*dotWriter) newTooltip(node *stat.NodeWeight, deps []*stat.Dep) string {
 	if node.Node.Recv != "" {
 		b.WriteString(fmt.Sprintf("(%s) ", node.Node.Recv))
 	}
-	b.Writelnf("%s.%s", node.Node.Pkg, node.Node.Name)
+	b.Writelnf("%s.%s", node.Node.PkgKey.LString(), node.Node.Name)
 	b.Writeln(node.Node.Position.String())
 	var (
 		inDeps  = []*stat.Dep{}
 		outDeps = []*stat.Dep{}
-		toID    = func(n *stat.Node) string { return fmt.Sprintf("%s.%s", n.Pkg, n.Name) }
+		toID    = func(n *stat.Node) string { return fmt.Sprintf("%s.%s", n.PkgKey.String(), n.Name) }
 		nid     = toID(node.Node)
 	)
 	for _, dep := range deps {
@@ -181,13 +181,14 @@ func (*dotWriter) newTooltip(node *stat.NodeWeight, deps []*stat.Dep) string {
 	sort.Slice(inDeps, func(i, j int) bool { return toID(inDeps[i].Pair.Ref) < toID(inDeps[j].Pair.Ref) })
 	sort.Slice(outDeps, func(i, j int) bool { return toID(outDeps[i].Pair.Def) < toID(outDeps[j].Pair.Def) })
 
+	toLID := func(n *stat.Node) string { return fmt.Sprintf("%s.%s", n.PkgKey.LString(), n.Name) }
 	b.Writeln("In:")
 	for _, dep := range inDeps {
-		b.Writelnf("%s %d", toID(dep.Pair.Ref), dep.Weight)
+		b.Writelnf("%s %d", toLID(dep.Pair.Ref), dep.Weight)
 	}
 	b.Writeln("Out:")
 	for _, dep := range outDeps {
-		b.Writelnf("%s %d", toID(dep.Pair.Def), dep.Weight)
+		b.Writelnf("%s %d", toLID(dep.Pair.Def), dep.Weight)
 	}
 	return b.String()
 }
@@ -202,10 +203,10 @@ func (s *dotWriter) build() string {
 
 	g.Attrs.Add("newrank", "true") // due to triangulation failed on generating layout
 	for pkg, nodes := range pkgMap {
-		sg := dot.NewSubgraph(pkg, true)
+		sg := dot.NewSubgraph(pkg.Key(), true)
 		sg.Attrs.Add("color", "lightgrey").
 			Add("style", "filled").
-			Add("label", pkg).
+			Add("label", pkg.LString()).
 			Add("fontsize", strconv.Itoa(subgraphFontsize))
 		nodeIOs := s.g.NodeIOs()
 		for _, node := range nodes {
@@ -242,8 +243,8 @@ func (s *dotWriter) build() string {
 		}
 		var (
 			tooltip = fmt.Sprintf("%s.%s -> %s.%s [%d]",
-				dep.Pair.Ref.Pkg, dep.Pair.Ref.Name,
-				dep.Pair.Def.Pkg, dep.Pair.Def.Name,
+				dep.Pair.Ref.PkgKey.String(), dep.Pair.Ref.Name,
+				dep.Pair.Def.PkgKey.String(), dep.Pair.Def.Name,
 				dep.Weight)
 			penwidth = strconv.Itoa(penwidthRanking.get(dep.Weight))
 			weight   = strconv.Itoa(weightRanking.get(dep.Weight))
@@ -264,7 +265,9 @@ func (s *dotWriter) Flush() error {
 	return nil
 }
 
-func (*dotWriter) nodeToID(node *stat.Node) string { return fmt.Sprintf("%s__%s", node.Pkg, node.Name) }
+func (*dotWriter) nodeToID(node *stat.Node) string {
+	return fmt.Sprintf("%s__%s", node.PkgKey.Key(), node.Name)
+}
 func (*dotWriter) nodeToTitleValue(node *stat.Node) string {
 	if node.Recv == "" {
 		return node.Name
@@ -272,7 +275,7 @@ func (*dotWriter) nodeToTitleValue(node *stat.Node) string {
 	return fmt.Sprintf("(%s).%s", node.Recv, node.Name)
 }
 
-func (*dotWriter) newFontsizeRanking(nodeMap map[string][]*stat.NodeWeight) *attrRanking {
+func (*dotWriter) newFontsizeRanking(nodeMap map[stat.PkgKey][]*stat.NodeWeight) *attrRanking {
 	r := stat.NewRanking()
 	for _, nodes := range nodeMap {
 		for _, n := range nodes {
