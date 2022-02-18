@@ -14,6 +14,8 @@ type (
 		ValueSpecs() []*ast.ValueSpec // var, const, field
 		FuncDecls() []*ast.FuncDecl   // func, method
 		TypeSpecs() []*ast.TypeSpec   // type alias, defined type
+		// Iterate visits all specs and decls until given function returns false.
+		Iterate(func(ast.Node) bool)
 	}
 
 	DefExtractor interface {
@@ -95,6 +97,24 @@ type def struct {
 func (s *def) ValueSpecs() []*ast.ValueSpec { return s.valueSpecs }
 func (s *def) FuncDecls() []*ast.FuncDecl   { return s.funcDecls }
 func (s *def) TypeSpecs() []*ast.TypeSpec   { return s.typeSpecs }
+
+func (s *def) Iterate(f func(ast.Node) bool) {
+	for _, fd := range s.funcDecls {
+		if !f(fd) {
+			return
+		}
+	}
+	for _, ts := range s.typeSpecs {
+		if !f(ts) {
+			return
+		}
+	}
+	for _, vs := range s.valueSpecs {
+		if !f(vs) {
+			return
+		}
+	}
+}
 
 func NewDefSet(pkg *packages.Package, defs []Def) DefSet {
 	return &defSet{

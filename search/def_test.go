@@ -73,7 +73,7 @@ func (s *defExtractorTestcase) assertValueSpecs(t *testing.T, got search.Def) {
 }
 
 func TestDefExtractor(t *testing.T) {
-	for _, tc := range []*defExtractorTestcase{
+	for _, tc := range []defExtractorTestcase{
 		{
 			title: "a func",
 			src: `package p
