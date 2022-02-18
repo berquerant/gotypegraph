@@ -3,16 +3,45 @@ package search
 import (
 	"go/ast"
 	"go/token"
+
+	"golang.org/x/tools/go/packages"
 )
 
 /* search references */
 
 type (
+	RefPkgSearcher interface {
+		Search(pkg *packages.Package, pos token.Pos) (ast.Node, bool)
+	}
+
 	RefSearcher interface {
 		// Search returns a node if the pos is contained in the node.
 		Search(defSet DefSet, pos token.Pos) (node ast.Node, found bool)
 	}
 )
+
+func NewRefPkgSearcher(searcher RefSearcher, defSets []DefSet) RefPkgSearcher {
+	defs := make(map[string]DefSet)
+	for _, defSet := range defSets {
+		defs[defSet.Pkg().ID] = defSet
+	}
+	return &refPkgSearcher{
+		defSets:  defs,
+		searcher: searcher,
+	}
+}
+
+type refPkgSearcher struct {
+	defSets  map[string]DefSet // pkg id => def set
+	searcher RefSearcher
+}
+
+func (s *refPkgSearcher) Search(pkg *packages.Package, pos token.Pos) (ast.Node, bool) {
+	if defSet, ok := s.defSets[pkg.ID]; ok {
+		return s.searcher.Search(defSet, pos)
+	}
+	return nil, false
+}
 
 func NewRefSearcher() RefSearcher {
 	return &refSearcher{}
