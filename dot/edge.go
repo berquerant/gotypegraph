@@ -1,6 +1,9 @@
 package dot
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type (
 	Edge interface {
@@ -49,4 +52,46 @@ func (s *edge) String() string {
 		return fmt.Sprintf("%s -> %s;", s.from, s.to)
 	}
 	return fmt.Sprintf("%s -> %s %s;", s.from, s.to, s.conf.attrList.String(false))
+}
+
+type (
+	EdgeList interface {
+		Len() int
+		Add(Edge) EdgeList
+		Slice() []Edge
+		String() string
+	}
+
+	edgeList struct {
+		list []Edge
+	}
+)
+
+func NewEdgeList() EdgeList {
+	return &edgeList{}
+}
+
+func (s *edgeList) Len() int {
+	if s == nil {
+		return 0
+	}
+	return len(s.list)
+}
+
+func (s *edgeList) Slice() []Edge { return s.list }
+
+func (s *edgeList) Add(edge Edge) EdgeList {
+	s.list = append(s.list, edge)
+	return s
+}
+
+func (s *edgeList) String() string {
+	if len(s.list) == 0 {
+		return ""
+	}
+	ss := make([]string, len(s.list))
+	for i, e := range s.list {
+		ss[i] = e.String()
+	}
+	return strings.Join(ss, "\n")
 }
