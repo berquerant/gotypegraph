@@ -3,6 +3,7 @@ package dot
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 var escapeTargetRegex = regexp.MustCompile(`[/$.()]`)
@@ -59,4 +60,48 @@ func (s *node) String() string {
 		return fmt.Sprintf("%s;", s.id.String())
 	}
 	return fmt.Sprintf("%s %s;", s.id, s.conf.attrList.String(false))
+}
+
+type (
+	NodeList interface {
+		Len() int
+		Add(Node) NodeList
+		Slice() []Node
+		String() string
+	}
+
+	nodeList struct {
+		list []Node
+	}
+)
+
+func NewNodeList() NodeList {
+	return &nodeList{}
+}
+
+func (s *nodeList) Len() int {
+	if s == nil {
+		return 0
+	}
+	return len(s.list)
+}
+
+func (s *nodeList) Add(n Node) NodeList {
+	s.list = append(s.list, n)
+	return s
+}
+
+func (s *nodeList) Slice() []Node {
+	if s == nil {
+		return nil
+	}
+	return s.list
+}
+
+func (s *nodeList) String() string {
+	ss := make([]string, len(s.list))
+	for i, n := range s.list {
+		ss[i] = n.String()
+	}
+	return strings.Join(ss, "\n")
 }
