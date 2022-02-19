@@ -51,3 +51,79 @@ nodeList
 		assert.True(t, attrList.asStmt)
 	})
 }
+
+type mockEdgeList struct {
+	str string
+}
+
+func (*mockEdgeList) Len() int                      { return 0 }
+func (s *mockEdgeList) Add(_ dot.Edge) dot.EdgeList { return s }
+func (*mockEdgeList) Slice() []dot.Edge             { return nil }
+func (s *mockEdgeList) String() string              { return s.str }
+
+type mockSubgraphList struct {
+	str string
+}
+
+func (*mockSubgraphList) Len() int                              { return 0 }
+func (s *mockSubgraphList) Add(_ dot.Subgraph) dot.SubgraphList { return s }
+func (*mockSubgraphList) Slice() []dot.Subgraph                 { return nil }
+func (s *mockSubgraphList) String() string                      { return s.str }
+
+func TestGraph(t *testing.T) {
+	t.Run("with nodes", func(t *testing.T) {
+		assert.Equal(t, `strict digraph g {
+nodeList
+}`, dot.NewGraph("g", &mockNodeList{
+			str: "nodeList",
+		}, nil).String())
+	})
+
+	t.Run("with nodes and edges", func(t *testing.T) {
+		assert.Equal(t, `strict digraph g {
+nodeList
+edgeList
+}`, dot.NewGraph("g", &mockNodeList{
+			str: "nodeList",
+		}, &mockEdgeList{
+			str: "edgeList",
+		}).String())
+	})
+
+	t.Run("with nodes, edges, and attrs", func(t *testing.T) {
+		attrs := &mockAttrList{
+			str: "attrList",
+		}
+		assert.Equal(t, `strict digraph g {
+attrList
+nodeList
+edgeList
+}`, dot.NewGraph("g", &mockNodeList{
+			str: "nodeList",
+		}, &mockEdgeList{
+			str: "edgeList",
+		}, dot.WithGraphAttrList(attrs)).String())
+		assert.True(t, attrs.asStmt)
+	})
+
+	t.Run("with nodes, edges, attrs and subgraphs", func(t *testing.T) {
+		attrs := &mockAttrList{
+			str: "attrList",
+		}
+		assert.Equal(t, `strict digraph g {
+attrList
+subgraphList
+nodeList
+edgeList
+}`, dot.NewGraph("g", &mockNodeList{
+			str: "nodeList",
+		}, &mockEdgeList{
+			str: "edgeList",
+		}, dot.WithGraphAttrList(attrs),
+			dot.WithGraphSubgraphList(&mockSubgraphList{
+				str: "subgraphList",
+			}),
+		).String())
+		assert.True(t, attrs.asStmt)
+	})
+}

@@ -8,6 +8,80 @@ import (
 )
 
 type (
+	Graph interface {
+		ID() ID
+		SubgraphList() SubgraphList
+		NodeList() NodeList
+		EdgeList() EdgeList
+		AttrList() AttrList
+		String() string
+	}
+
+	GraphConfig struct {
+		attrList     AttrList
+		subgraphList SubgraphList
+	}
+
+	GraphOption func(*GraphConfig)
+
+	graph struct {
+		id       ID
+		nodeList NodeList
+		edgeList EdgeList
+		conf     *GraphConfig
+	}
+)
+
+func NewGraph(id ID, nodeList NodeList, edgeList EdgeList, opt ...GraphOption) Graph {
+	var config GraphConfig
+	for _, x := range opt {
+		x(&config)
+	}
+	return &graph{
+		id:       id,
+		nodeList: nodeList,
+		edgeList: edgeList,
+		conf:     &config,
+	}
+}
+
+func WithGraphAttrList(attrList AttrList) GraphOption {
+	return func(c *GraphConfig) {
+		c.attrList = attrList
+	}
+}
+
+func WithGraphSubgraphList(subgraphList SubgraphList) GraphOption {
+	return func(c *GraphConfig) {
+		c.subgraphList = subgraphList
+	}
+}
+
+func (s *graph) ID() ID                     { return s.id }
+func (s *graph) SubgraphList() SubgraphList { return s.conf.subgraphList }
+func (s *graph) NodeList() NodeList         { return s.nodeList }
+func (s *graph) EdgeList() EdgeList         { return s.edgeList }
+func (s *graph) AttrList() AttrList         { return s.conf.attrList }
+func (s *graph) String() string {
+	var b util.StringBuilder
+	b.Writelnf("strict digraph %s {", s.id)
+	if s.conf.attrList != nil {
+		b.Writelnf(s.conf.attrList.String(true))
+	}
+	if s.conf.subgraphList != nil {
+		b.Writeln(s.conf.subgraphList.String())
+	}
+	if s.nodeList != nil {
+		b.Writeln(s.nodeList.String())
+	}
+	if s.edgeList != nil {
+		b.Writeln(s.edgeList.String())
+	}
+	b.Write("}")
+	return b.String()
+}
+
+type (
 	Subgraph interface {
 		ID() ID
 		AttrList() AttrList
