@@ -79,12 +79,22 @@ func NewAttrList() AttrList {
 	return &attrList{}
 }
 
-func (s *attrList) Len() int { return len(s.list) }
+func (s *attrList) Len() int {
+	if s == nil {
+		return 0
+	}
+	return len(s.list)
+}
 func (s *attrList) Add(a Attr) AttrList {
 	s.list = append(s.list, a)
 	return s
 }
-func (s *attrList) Slice() []Attr { return s.list }
+func (s *attrList) Slice() []Attr {
+	if s == nil {
+		return nil
+	}
+	return s.list
+}
 func (s *attrList) String(asStatementList bool) string {
 	if len(s.list) == 0 {
 		return ""
