@@ -10,6 +10,7 @@ import (
 /* search definitions */
 
 type (
+	// Def is a set of the top level definitions of a package.
 	Def interface {
 		ValueSpecs() []*ast.ValueSpec // var, const, field
 		FuncDecls() []*ast.FuncDecl   // func, method
