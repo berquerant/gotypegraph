@@ -9,6 +9,7 @@ import (
 
 type (
 	ObjExtractor interface {
+		// Extract extracts an object with the ident.
 		Extract(pkg *packages.Package, ident *ast.Ident) (Object, bool)
 	}
 

@@ -1,7 +1,6 @@
 package search
 
 import (
-	"go/ast"
 	"go/token"
 	"go/types"
 )
@@ -15,9 +14,4 @@ type Object interface {
 	Type() types.Type
 	Exported() bool
 	Id() string
-}
-
-type Target interface {
-	Ident() *ast.Ident
-	Obj() Object
 }
