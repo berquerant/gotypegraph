@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"log"
+	"regexp"
 )
 
 type Level int
@@ -18,14 +19,24 @@ const (
 func (s Level) LessEqual(other Level) bool { return int(s) <= int(other) }
 
 var (
-	level = Info
+	level        = Info
+	filterRegexp *regexp.Regexp
 )
 
+// SetLevel sets logging level.
 func SetLevel(lev Level) { level = lev }
+
+// SetFilter sets regexp to select logs.
+// If re is not nil, logs that matched with re are displayed.
+func SetFilter(re *regexp.Regexp) { filterRegexp = re }
 
 func toBeLogged(lev Level) bool { return lev.LessEqual(level) }
 
-func outputf(v string) { log.Println(v) }
+func outputf(v string) {
+	if filterRegexp == nil || filterRegexp.MatchString(v) {
+		log.Println(v)
+	}
+}
 
 func Verbosef(format string, v ...interface{}) {
 	if toBeLogged(Verbose) {

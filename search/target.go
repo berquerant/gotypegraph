@@ -2,14 +2,17 @@ package search
 
 import (
 	"go/ast"
+	"go/types"
 
+	"github.com/berquerant/gotypegraph/logger"
 	"golang.org/x/tools/go/packages"
 )
 
 type (
+	// Target is the dependency of the object.
 	Target interface {
-		Ident() *ast.Ident
-		Obj() Object
+		Ident() *ast.Ident // ref
+		Obj() Object       // def
 	}
 
 	TargetExtractor interface {
@@ -51,6 +54,7 @@ func (s *targetExtractor) Extract(pkg *packages.Package, filter Filter) <-chan T
 	resultC := make(chan Target, s.conf.resultBufferSize)
 	go func() {
 		for ident, obj := range pkg.TypesInfo.Uses {
+			logger.Verbosef("[TargetExtractor] %s (%s) %s %s", pkg.Name, pkg.PkgPath, ident, types.ObjectString(obj, nil))
 			tgt := NewTarget(ident, obj)
 			if filter != nil && filter(tgt) {
 				resultC <- tgt

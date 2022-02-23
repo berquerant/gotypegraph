@@ -52,6 +52,7 @@ var d1, d2 = 1, 2
 		ID:     "testpkgid",
 		Name:   "testpkg",
 		Syntax: []*ast.File{f},
+		Fset:   fset,
 	})
 	filter := search.DefSetFilter([]search.DefSet{set})
 
@@ -87,7 +88,7 @@ var d1, d2 = 1, 2
 		},
 		{
 			title: "main",
-			pos:   17, // func
+			pos:   22,
 			want:  true,
 		},
 		{

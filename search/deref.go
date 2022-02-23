@@ -2,6 +2,7 @@ package search
 
 import (
 	"go/ast"
+	"go/types"
 
 	"github.com/berquerant/gotypegraph/logger"
 	"golang.org/x/tools/go/packages"
@@ -22,6 +23,6 @@ func NewObjExtractor() ObjExtractor {
 
 func (*objExtractor) Extract(pkg *packages.Package, ident *ast.Ident) (Object, bool) {
 	obj, ok := pkg.TypesInfo.Defs[ident]
-	logger.Verbosef("[ObjExtractor] %s (%s) %s %#v", pkg.Name, pkg.ID, ident, obj)
+	logger.Verbosef("[ObjExtractor] %s", types.ObjectString(obj, nil))
 	return obj, ok
 }

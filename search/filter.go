@@ -3,6 +3,7 @@ package search
 import (
 	"go/token"
 
+	"github.com/berquerant/gotypegraph/logger"
 	"github.com/berquerant/gotypegraph/util"
 	"golang.org/x/tools/go/packages"
 )
@@ -55,7 +56,7 @@ func OtherPkgFilter(pkgs []*packages.Package) Filter {
 	pkgSet := util.NewStringSet(ss...)
 
 	return func(tgt Target) bool {
-		return tgt.Obj() != nil && tgt.Obj().Pkg() != nil && pkgSet.In(tgt.Obj().Pkg().Path())
+		return tgt.Obj() != nil && tgt.Obj().Pkg() != nil && !pkgSet.In(tgt.Obj().Pkg().Path())
 	}
 }
 
@@ -63,21 +64,28 @@ func OtherPkgFilter(pkgs []*packages.Package) Filter {
 func DefSetFilter(setList []DefSet) Filter {
 	pkgSet := make(map[string]map[token.Pos]bool, len(setList))
 	for _, defSet := range setList {
-		posSet := make(map[token.Pos]bool)
+		var (
+			path   = defSet.Pkg().PkgPath
+			fSet   = defSet.Pkg().Fset
+			posSet = make(map[token.Pos]bool)
+		)
 		for _, def := range defSet.Defs() {
 			for _, vs := range def.ValueSpecs() {
 				for _, nm := range vs.Names {
 					posSet[nm.Pos()] = true
+					logger.Verbosef("[DefSetFilter][init][%s][valueSpec] %s %s %d", path, nm, fSet.Position(nm.Pos()), nm.Pos())
 				}
 			}
 			for _, fd := range def.FuncDecls() {
-				posSet[fd.Pos()] = true
+				posSet[fd.Name.Pos()] = true
+				logger.Verbosef("[DefSetFilter][init][%s][funcDecl] %s %s %d", path, fd.Name, fSet.Position(fd.Name.Pos()), fd.Pos())
 			}
 			for _, ts := range def.TypeSpecs() {
-				posSet[ts.Pos()] = true
+				posSet[ts.Name.Pos()] = true
+				logger.Verbosef("[DefSetFilter][init][%s][typeSpec] %s %s %d", path, ts.Name, fSet.Position(ts.Name.Pos()), ts.Pos())
 			}
 		}
-		pkgSet[defSet.Pkg().PkgPath] = posSet
+		pkgSet[path] = posSet
 	}
 
 	return func(tgt Target) bool {
