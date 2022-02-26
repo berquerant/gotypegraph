@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
-	"path/filepath"
 	"reflect"
 	"sync"
 
@@ -290,9 +289,15 @@ type (
 		Obj() Object
 		Type() NodeType
 		Name() string
-		RecvString() string
+		RecvString(opt ...NodeOption) string
 		Info() *NodeInfo
 	}
+
+	NodeConfig struct {
+		rawRecv bool
+	}
+
+	NodeOption func(*NodeConfig)
 
 	RefNode interface {
 		Node
@@ -310,6 +315,12 @@ type (
 		ValueSpecIndex int
 	}
 )
+
+func WithNodeRawRecv(v bool) NodeOption {
+	return func(c *NodeConfig) {
+		c.rawRecv = v
+	}
+}
 
 type refNode struct {
 	*node
@@ -377,7 +388,12 @@ func (s *node) Obj() Object     { return s.obj }
 func (s *node) Type() NodeType  { return s.nodeType }
 func (s *node) Info() *NodeInfo { return s.nodeInfo }
 func (s *node) Name() string    { return s.obj.Name() }
-func (s *node) RecvString() string {
+func (s *node) RecvString(opt ...NodeOption) string {
+	var conf NodeConfig
+	for _, x := range opt {
+		x(&conf)
+	}
+
 	sig, ok := s.obj.Type().(*types.Signature)
 	if !ok {
 		return ""
@@ -390,6 +406,9 @@ func (s *node) RecvString() string {
 		return t.Obj().Name()
 	case *types.Pointer:
 		if nmd, ok := t.Elem().(*types.Named); ok {
+			if conf.rawRecv {
+				return nmd.Obj().Name()
+			}
 			return "*" + nmd.Obj().Name()
 		}
 		return ""
@@ -403,7 +422,6 @@ type (
 		Pkg() *packages.Package
 		Name() string
 		Path() string
-		Dir() string
 		IsBuiltin() bool
 	}
 
@@ -424,7 +442,6 @@ func NewBuiltinPkg() Pkg { return &builtinPkg{} }
 func (*builtinPkg) Pkg() *packages.Package { return nil }
 func (*builtinPkg) Name() string           { return builtinPkgName }
 func (*builtinPkg) Path() string           { return builtinPkgName }
-func (*builtinPkg) Dir() string            { return builtinPkgName }
 func (*builtinPkg) IsBuiltin() bool        { return true }
 func (*builtinPkg) String() string         { return builtinPkgName }
 
@@ -437,7 +454,6 @@ func NewPkg(pkg *packages.Package) Pkg {
 func (s *pkgWithPkg) Pkg() *packages.Package { return s.pkg }
 func (s *pkgWithPkg) Name() string           { return s.pkg.Name }
 func (s *pkgWithPkg) Path() string           { return s.pkg.PkgPath }
-func (s *pkgWithPkg) Dir() string            { return filepath.Dir(s.pkg.PkgPath) }
 func (*pkgWithPkg) IsBuiltin() bool          { return false }
 func (s *pkgWithPkg) String() string {
 	return fmt.Sprintf("%s path %s id %s", s.pkg.Name, s.pkg.PkgPath, s.pkg.ID)
@@ -453,7 +469,6 @@ func NewPkgWithName(name, path string) Pkg {
 func (*pkgWithName) Pkg() *packages.Package { return nil }
 func (s *pkgWithName) Name() string         { return s.name }
 func (s *pkgWithName) Path() string         { return s.path }
-func (s *pkgWithName) Dir() string          { return filepath.Dir(s.path) }
 func (*pkgWithName) IsBuiltin() bool        { return false }
 func (s *pkgWithName) String() string {
 	return fmt.Sprintf("name %s path %s", s.name, s.path)
