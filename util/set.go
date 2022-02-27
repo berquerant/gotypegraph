@@ -3,6 +3,7 @@ package util
 type StringSet interface {
 	Add(string) StringSet
 	In(string) bool
+	Len() int
 }
 
 func NewStringSet(seed ...string) StringSet {
@@ -25,3 +26,4 @@ func (s *stringSet) Add(v string) StringSet {
 }
 
 func (s *stringSet) In(v string) bool { return s.d[v] }
+func (s *stringSet) Len() int         { return len(s.d) }
