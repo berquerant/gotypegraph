@@ -1,4 +1,4 @@
-package use_test
+package search_test
 
 import (
 	"go/ast"
@@ -7,8 +7,8 @@ import (
 	"go/types"
 	"testing"
 
-	"github.com/berquerant/gotypegraph/def"
-	"github.com/berquerant/gotypegraph/use"
+	"github.com/berquerant/gotypegraph/logger"
+	"github.com/berquerant/gotypegraph/search"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/tools/go/packages"
 )
@@ -27,7 +27,8 @@ func (*mockObj) Exported() bool        { return false }
 func (*mockObj) Id() string            { return "" }
 func (*mockObj) String() string        { return "" }
 
-func TestDefFilter(t *testing.T) {
+func TestDefSetFilter(t *testing.T) {
+	logger.SetLevel(logger.Verbose)
 	const src = `package testpkg
 func main() {
   const internalVar = "int"
@@ -47,12 +48,13 @@ var d1, d2 = 1, 2
 		return
 	}
 	ast.Print(fset, f)
-	set := def.NewSetExtractor(def.NewExtactor()).Extract(&packages.Package{ // FIXME: not unit test
+	set := search.NewDefSetExtractor(search.NewDefExtractor()).Extract(&packages.Package{ // FIXME: not unit test
 		ID:     "testpkgid",
 		Name:   "testpkg",
 		Syntax: []*ast.File{f},
+		Fset:   fset,
 	})
-	filter := use.DefFilter([]*def.Set{set})
+	filter := search.DefSetFilter([]search.DefSet{set})
 
 	for _, tc := range []struct {
 		title string
@@ -102,10 +104,10 @@ var d1, d2 = 1, 2
 	} {
 		tc := tc
 		t.Run(tc.title, func(t *testing.T) {
-			got := filter(nil, &mockObj{
+			got := filter(search.NewTarget(nil, &mockObj{
 				pkg: types.NewPackage("", "testpkg"),
 				pos: tc.pos,
-			})
+			}))
 			assert.Equal(t, tc.want, got)
 		})
 	}
@@ -113,12 +115,12 @@ var d1, d2 = 1, 2
 
 func TestFilter(t *testing.T) {
 	var (
-		tf use.Filter = func(_ *ast.Ident, _ use.Object) bool { return true }
-		ff use.Filter = func(_ *ast.Ident, _ use.Object) bool { return false }
+		tf search.Filter = func(_ search.Target) bool { return true }
+		ff search.Filter = func(_ search.Target) bool { return false }
 	)
 	for _, tc := range []struct {
 		title  string
-		filter use.Filter
+		filter search.Filter
 		want   bool
 	}{
 		{
@@ -184,7 +186,7 @@ func TestFilter(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.title, func(t *testing.T) {
-			assert.Equal(t, tc.want, tc.filter(nil, nil))
+			assert.Equal(t, tc.want, tc.filter(nil))
 		})
 	}
 }

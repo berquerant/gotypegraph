@@ -1,4 +1,4 @@
-package ref_test
+package search_test
 
 import (
 	"go/ast"
@@ -6,13 +6,13 @@ import (
 	"go/token"
 	"testing"
 
-	"github.com/berquerant/gotypegraph/def"
-	"github.com/berquerant/gotypegraph/ref"
+	"github.com/berquerant/gotypegraph/astutil"
+	"github.com/berquerant/gotypegraph/search"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/tools/go/packages"
 )
 
-type localSearcherTestcase struct {
+type refSearcherTestcase struct {
 	title     string
 	src       string
 	ident     string
@@ -20,27 +20,23 @@ type localSearcherTestcase struct {
 	wantIdent string
 }
 
-func (s *localSearcherTestcase) test(t *testing.T) {
+func (s *refSearcherTestcase) test(t *testing.T) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", s.src, 0)
 	if !assert.Nil(t, err) {
 		return
 	}
 	ast.Print(fset, f)
-	set := def.NewSetExtractor(def.NewExtactor()).Extract(&packages.Package{ // FIXME: not unit test
+	set := search.NewDefSetExtractor(search.NewDefExtractor()).Extract(&packages.Package{ // FIXME: not unit test
 		ID:     "testpkg",
 		Syntax: []*ast.File{f},
 	})
-	searcher := ref.NewLocalSearcher(set)
-	if !assert.Equal(t, searcher.Set().Pkg.ID, "testpkg") {
-		return
-	}
-	ident := s.findLocalIdent(f)
-	if !assert.NotNil(t, ident, "%s must be found", s.ident) {
+	ident, ok := astutil.FindIdentFromFile(f, s.ident)
+	if assert.True(t, ok, "ident should be found") {
 		return
 	}
 	t.Logf("ident %s pos %s", s.ident, fset.Position(ident.Pos()))
-	got, ok := searcher.Search(ident.Pos())
+	got, ok := search.NewRefSearcher().Search(set, ident.Pos())
 	assert.Equal(t, s.wantFound, ok)
 	if !s.wantFound {
 		return
@@ -62,22 +58,8 @@ func (s *localSearcherTestcase) test(t *testing.T) {
 	}
 }
 
-func (s *localSearcherTestcase) findLocalIdent(f *ast.File) *ast.Ident {
-	var r *ast.Ident
-	ast.Inspect(f, func(n ast.Node) bool {
-		if ident, ok := n.(*ast.Ident); ok {
-			if ident.Name == s.ident {
-				r = ident
-				return false
-			}
-		}
-		return true
-	})
-	return r
-}
-
-func TestLocalSearcher(t *testing.T) {
-	for _, tc := range []*localSearcherTestcase{
+func TestRefSearcher(t *testing.T) {
+	for _, tc := range []refSearcherTestcase{
 		{
 			title: "found in nested func decl",
 			src: `package p

@@ -5,29 +5,33 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
-	"github.com/berquerant/gotypegraph/def"
 	"github.com/berquerant/gotypegraph/display"
 	"github.com/berquerant/gotypegraph/load"
+	"github.com/berquerant/gotypegraph/logger"
 	"github.com/berquerant/gotypegraph/profile"
-	"github.com/berquerant/gotypegraph/ref"
-	"github.com/berquerant/gotypegraph/use"
+	"github.com/berquerant/gotypegraph/search"
+	"github.com/berquerant/gotypegraph/util"
 	"golang.org/x/tools/go/packages"
 )
 
 var (
-	outputType      = flag.String("type", "dot", "Output format. string, json or dot.")
-	searchForeign   = flag.Bool("foreign", false, "Search definitions in foreign packages.")
-	searchUniverse  = flag.Bool("universe", false, "Search definitions in builtin packages.")
-	searchPrivate   = flag.Bool("private", false, "Search private definitions.")
-	stat            = flag.Bool("stat", false, "Generate stat graph when type is dot.")
-	acceptNameRegex = flag.String("accept.name", "", "Accept objects whose name matches this.")
-	denyNameRegex   = flag.String("deny.name", "", "Deny objects whose name matches this.")
-	acceptPkgRegex  = flag.String("accept.pkg", "", "Accept packages whose name matches this.")
-	denyPkgRegex    = flag.String("deny.pkg", "", "Deny packages whose name matches this.")
-)
+	outputType       = flag.String("type", "dot", "Output format. json or dot.")
+	useStat          = flag.Bool("stat", false, "Generate stat graph when type is dot.")
+	searchForeign    = flag.Bool("foreign", false, "Search definitions in foreign packages.")
+	searchUniverse   = flag.Bool("universe", false, "Search definitions in builtin packages.")
+	searchPrivate    = flag.Bool("private", false, "Search private definitions.")
+	acceptNameRegex  = flag.String("accept.name", "", "Accept objects whose name matches this.")
+	denyNameRegex    = flag.String("deny.name", "", "Deny objects whose name matches this.")
+	acceptPkgRegex   = flag.String("accept.pkg", "", "Accept packages whose name matches this.")
+	denyPkgRegex     = flag.String("deny.pkg", "", "Deny packages whose name matches this.")
+	searchWorkerNum  = flag.Int("worker", 4, "Number of search workers.")
+	searchBufferSize = flag.Int("buffer", 1000, "Size of search buffers.")
 
-// TODO: more filter options
+	verbosity = flag.String("v", "info", "Logging verbosity. error, warn, info, debug or verbose.")
+	logRegexp = flag.String("log.regexp", "", "Regexp to grep logs.")
+)
 
 const usage = `Usage of gotypegraph:
   gotypegraph [flags] -type TYPE patterns...
@@ -44,10 +48,28 @@ func fail(err error) {
 	}
 }
 
-func loadPackages() []*packages.Package {
-	pkgs, err := load.New().Load(flag.Args()...)
-	fail(err)
-	return pkgs
+func initLogger() {
+	logger.SetLevel(logLevel())
+	logger.SetFilter(compileRegex(*logRegexp))
+}
+
+func logLevel() logger.Level {
+	x := strings.ToLower(*verbosity)
+	pref := func(t string) bool { return strings.HasPrefix(x, t) }
+	switch {
+	case pref("v"):
+		return logger.Verbose
+	case pref("d"):
+		return logger.Debug
+	case pref("i"):
+		return logger.Info
+	case pref("w"):
+		return logger.Warn
+	case pref("e"):
+		return logger.Error
+	default:
+		return logger.Info
+	}
 }
 
 func compileRegex(v string) *regexp.Regexp {
@@ -57,58 +79,69 @@ func compileRegex(v string) *regexp.Regexp {
 	return regexp.MustCompile(v)
 }
 
-func newSearcher(pkgs []*packages.Package) use.Searcher {
-	var (
-		setExtractor = def.NewSetExtractor(def.NewExtactor())
-		sets         = make([]*def.Set, len(pkgs))
-	)
-	for i, pkg := range pkgs {
-		sets[i] = setExtractor.Extract(pkg)
-	}
-	return use.NewSearcher(
-		pkgs,
-		ref.NewSearcher(ref.NewLocalSearcherSet(sets)),
-		use.DefFilter(sets),
-		use.WithSearchForeign(*searchForeign),
-		use.WithSearchUniverse(*searchUniverse),
-		use.WithSearchPrivate(*searchPrivate),
-		use.WithAcceptNameRegex(compileRegex(*acceptNameRegex)),
-		use.WithDenyNameRegex(compileRegex(*denyNameRegex)),
-		use.WithAcceptPkgRegex(compileRegex(*acceptPkgRegex)),
-		use.WithDenyPkgRegex(compileRegex(*denyPkgRegex)),
-	)
+func loadPackages() []*packages.Package {
+	pkgs, err := load.New().Load(flag.Args()...)
+	fail(err)
+	return pkgs
 }
 
 func newWriter() display.Writer {
 	switch *outputType {
-	case "string":
-		return display.NewStringWriter(os.Stdout)
-	case "json":
-		return display.NewJSONWriter(os.Stdout)
 	case "dot":
-		if *stat {
-			return display.NewStatDotWriter(os.Stdout)
+		if *useStat {
+			return display.NewPackageDotWriter(os.Stdout)
 		}
-		return display.NewDotWriter(os.Stdout)
+		return display.NewNodeDotWriter(os.Stdout)
 	default:
-		panic(fmt.Sprintf("unknown output type: %s", *outputType))
+		return display.NewJSONWriter(os.Stdout)
 	}
+}
+
+func newSearcher(pkgs []*packages.Package, opt ...search.UseSearcherOption) search.UseSearcher {
+	var (
+		defSetExtractor = search.NewDefSetExtractor(search.NewDefExtractor())
+		defSetList      = make([]search.DefSet, len(pkgs))
+	)
+	for i, pkg := range pkgs {
+		defSetList[i] = defSetExtractor.Extract(pkg)
+	}
+	return search.NewUseSearcher(
+		pkgs,
+		search.NewRefPkgSearcher(search.NewRefSearcher(), defSetList),
+		search.NewObjExtractor(),
+		search.NewTargetExtractor(),
+		search.DefSetFilter(defSetList),
+		opt...,
+	)
 }
 
 func main() {
 	flag.Usage = Usage
 	flag.Parse()
 
+	initLogger()
 	profiler := profile.NewProfiler(profile.NewStopwatch())
 	profiler.Init()
-	defer func() {
-		fmt.Fprint(os.Stderr, profiler.Result().String())
-	}()
 	pkgs := loadPackages()
 	profiler.PkgLoaded(pkgs)
 	var (
-		searcher = newSearcher(pkgs)
-		writer   = newWriter()
+		searcher = newSearcher(
+			pkgs,
+			search.WithUseSearcherSearchForeign(*searchForeign),
+			search.WithUseSearcherSearchUniverse(*searchUniverse),
+			search.WithUseSearcherSearchPrivate(*searchPrivate),
+			search.WithUseSearcherPkgNameRegexp(util.NewRegexpPair(
+				compileRegex(*acceptPkgRegex),
+				compileRegex(*denyPkgRegex),
+			)),
+			search.WithUseSearcherObjNameRegexp(util.NewRegexpPair(
+				compileRegex(*acceptNameRegex),
+				compileRegex(*denyNameRegex),
+			)),
+			search.WithUseSearcherWorkerNum(*searchWorkerNum),
+			search.WithUseSearcherResultBufferSize(*searchBufferSize),
+		)
+		writer = newWriter()
 	)
 	for result := range searcher.Search() {
 		fail(writer.Write(result))
@@ -117,4 +150,5 @@ func main() {
 	profiler.Searched()
 	fail(writer.Flush())
 	profiler.Flushed()
+	fmt.Fprint(os.Stderr, profiler.Result().String())
 }

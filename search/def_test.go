@@ -1,4 +1,4 @@
-package def_test
+package search_test
 
 import (
 	"go/ast"
@@ -6,11 +6,11 @@ import (
 	"go/token"
 	"testing"
 
-	"github.com/berquerant/gotypegraph/def"
+	"github.com/berquerant/gotypegraph/search"
 	"github.com/stretchr/testify/assert"
 )
 
-type extractTestcase struct {
+type defExtractorTestcase struct {
 	title          string
 	src            string
 	wantValueSpecs [][]string
@@ -18,48 +18,51 @@ type extractTestcase struct {
 	wantTypeSpecs  []string
 }
 
-func (s *extractTestcase) test(t *testing.T) {
+func (s *defExtractorTestcase) test(t *testing.T) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, "", s.src, 0)
 	assert.Nil(t, err)
 	ast.Print(fset, f)
-	got := def.NewExtactor().Extract(f)
+	got := search.NewDefExtractor().Extract(f)
 	s.assertValueSpecs(t, got)
 	s.assertFuncDecls(t, got)
 	s.assertTypeSpecs(t, got)
 }
 
-func (s *extractTestcase) assertTypeSpecs(t *testing.T, got *def.Def) {
-	assert.Equal(t, len(s.wantTypeSpecs), len(got.TypeSpecs))
-	if len(got.TypeSpecs) == 0 {
+func (s *defExtractorTestcase) assertTypeSpecs(t *testing.T, got search.Def) {
+	gotLen := len(got.TypeSpecs())
+	assert.Equal(t, len(s.wantTypeSpecs), gotLen)
+	if gotLen == 0 {
 		return
 	}
-	names := make([]string, len(got.TypeSpecs))
-	for i, ts := range got.TypeSpecs {
+	names := make([]string, gotLen)
+	for i, ts := range got.TypeSpecs() {
 		names[i] = ts.Name.String()
 	}
 	assert.Equal(t, s.wantTypeSpecs, names)
 }
 
-func (s *extractTestcase) assertFuncDecls(t *testing.T, got *def.Def) {
-	assert.Equal(t, len(s.wantFuncDecls), len(got.FuncDecls))
-	if len(got.FuncDecls) == 0 {
+func (s *defExtractorTestcase) assertFuncDecls(t *testing.T, got search.Def) {
+	gotLen := len(got.FuncDecls())
+	assert.Equal(t, len(s.wantFuncDecls), gotLen)
+	if gotLen == 0 {
 		return
 	}
-	names := make([]string, len(got.FuncDecls))
-	for i, fd := range got.FuncDecls {
+	names := make([]string, gotLen)
+	for i, fd := range got.FuncDecls() {
 		names[i] = fd.Name.String()
 	}
 	assert.Equal(t, s.wantFuncDecls, names)
 }
 
-func (s *extractTestcase) assertValueSpecs(t *testing.T, got *def.Def) {
-	assert.Equal(t, len(s.wantValueSpecs), len(got.ValueSpecs))
-	if len(got.ValueSpecs) == 0 {
+func (s *defExtractorTestcase) assertValueSpecs(t *testing.T, got search.Def) {
+	gotLen := len(got.ValueSpecs())
+	assert.Equal(t, len(s.wantValueSpecs), gotLen)
+	if gotLen == 0 {
 		return
 	}
-	names := make([][]string, len(got.ValueSpecs))
-	for i, vs := range got.ValueSpecs {
+	names := make([][]string, gotLen)
+	for i, vs := range got.ValueSpecs() {
 		nms := make([]string, len(vs.Names))
 		for j, n := range vs.Names {
 			nms[j] = n.String()
@@ -69,8 +72,8 @@ func (s *extractTestcase) assertValueSpecs(t *testing.T, got *def.Def) {
 	assert.Equal(t, s.wantValueSpecs, names)
 }
 
-func TestExtractor(t *testing.T) {
-	for _, tc := range []*extractTestcase{
+func TestDefExtractor(t *testing.T) {
+	for _, tc := range []defExtractorTestcase{
 		{
 			title: "a func",
 			src: `package p

@@ -10,7 +10,8 @@ func New() Loader { return &loader{} }
 
 type loader struct{}
 
-const loadMode = packages.NeedTypesInfo | packages.NeedTypes | packages.NeedName | packages.NeedSyntax | packages.NeedImports
+const loadMode = packages.NeedTypesInfo | packages.NeedTypes | packages.NeedName |
+	packages.NeedSyntax | packages.NeedImports
 
 func (*loader) Load(patterns ...string) ([]*packages.Package, error) {
 	return packages.Load(&packages.Config{

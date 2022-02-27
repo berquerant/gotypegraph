@@ -1,17 +1,20 @@
-package stat
+package util
 
 import "sort"
 
-// Ranking is a discrete distribution.
 type Ranking interface {
 	Add(v int)
 	GetPercentile(v int) float64
 }
 
-func NewRanking() Ranking {
-	return &ranking{
-		d: map[int]int{},
+func NewRanking(v ...int) Ranking {
+	s := &ranking{
+		d: make(map[int]int),
 	}
+	for _, x := range v {
+		s.Add(x)
+	}
+	return s
 }
 
 type ranking struct {
@@ -19,7 +22,8 @@ type ranking struct {
 }
 
 func (s *ranking) Add(v int) { s.d[v]++ }
-func (s *ranking) sortedValues() []int {
+
+func (s *ranking) sorted() []int {
 	var (
 		i      int
 		values = make([]int, len(s.d))
@@ -32,27 +36,21 @@ func (s *ranking) sortedValues() []int {
 	return values
 }
 
-func (s *ranking) countLower(v int) int {
-	values := s.sortedValues()
+func (s *ranking) GetPercentile(v int) float64 {
+	values := s.sorted()
 	if v < values[0] {
 		return 0
 	}
 	for i, x := range values {
 		if x > v {
-			return i
+			return float64(i) / float64(len(values))
 		}
 	}
-	return len(values)
+	return 1
 }
 
-func (s *ranking) GetPercentile(v int) float64 {
-	idx := s.countLower(v)
-	return float64(idx) / float64(len(s.d))
-}
-
-// Percentiler converts a percent point into the percentile on the uniform distribution.
 type Percentiler interface {
-	Get(p float64) int
+	Percentile(p float64) int
 }
 
 func NewPercentiler(min, max int) Percentiler {
@@ -67,7 +65,7 @@ type percentiler struct {
 	max int
 }
 
-func (s *percentiler) Get(p float64) int {
+func (s *percentiler) Percentile(p float64) int {
 	switch {
 	case p < 0:
 		return s.min

@@ -1,10 +1,10 @@
 package profile
 
 import (
-	"fmt"
+	"go/types"
 	"time"
 
-	"github.com/berquerant/gotypegraph/use"
+	"github.com/berquerant/gotypegraph/search"
 	"github.com/berquerant/gotypegraph/util"
 	"golang.org/x/tools/go/packages"
 )
@@ -12,14 +12,14 @@ import (
 type Profiler struct {
 	sw      Stopwatch
 	pkgs    []*packages.Package
-	results []*use.Result
+	results []search.Use
 }
 
 func NewProfiler(sw Stopwatch) *Profiler {
 	return &Profiler{
 		sw:      sw,
 		pkgs:    []*packages.Package{},
-		results: []*use.Result{},
+		results: []search.Use{},
 	}
 }
 
@@ -29,7 +29,7 @@ func (s *Profiler) Init() {
 	s.sw.Init()
 }
 
-func (s *Profiler) Add(result *use.Result) {
+func (s *Profiler) Add(result search.Use) {
 	s.results = append(s.results, result)
 }
 func (s *Profiler) PkgLoaded(pkgs []*packages.Package) {
@@ -66,12 +66,12 @@ func (s *Profiler) Result() *Profile {
 		searchedRef = util.NewStringSet()
 	)
 	for _, result := range s.results {
-		r := result.RefPair
-		d := result.DefPair
-		searchedPkg.Add(d.PkgName)
-		searchedPkg.Add(r.Pkg.Name)
-		searchedDef.Add(fmt.Sprintf("%s__%s", d.PkgName, d.Obj.Name()))
-		searchedRef.Add(fmt.Sprintf("%s__%s", r.Pkg.Name, r.NodeName()))
+		r := result.Ref()
+		d := result.Def()
+		searchedPkg.Add(d.Pkg().Path())
+		searchedPkg.Add(r.Pkg().Path())
+		searchedDef.Add(types.ObjectString(d.Obj().(types.Object), nil))
+		searchedRef.Add(types.ObjectString(r.Obj().(types.Object), nil))
 	}
 	profile.SearchedPkgNum = searchedPkg.Len()
 	profile.SearchedDefNum = searchedDef.Len()

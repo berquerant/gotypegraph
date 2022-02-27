@@ -1,29 +1,29 @@
 package util
 
-type StringSet struct {
+type StringSet interface {
+	Add(string) StringSet
+	In(string) bool
+	Len() int
+}
+
+func NewStringSet(seed ...string) StringSet {
+	d := make(map[string]bool)
+	for _, x := range seed {
+		d[x] = true
+	}
+	return &stringSet{
+		d: d,
+	}
+}
+
+type stringSet struct {
 	d map[string]bool
 }
 
-func NewStringSet() *StringSet {
-	return &StringSet{
-		d: map[string]bool{},
-	}
-}
-
-func (s *StringSet) Add(v string) *StringSet {
+func (s *stringSet) Add(v string) StringSet {
 	s.d[v] = true
 	return s
 }
-func (s *StringSet) In(v string) bool { return s.d[v] }
-func (s *StringSet) Len() int         { return len(s.d) }
-func (s *StringSet) Slice() []string {
-	var (
-		i int
-		r = make([]string, len(s.d))
-	)
-	for k := range s.d {
-		r[i] = k
-		i++
-	}
-	return r
-}
+
+func (s *stringSet) In(v string) bool { return s.d[v] }
+func (s *stringSet) Len() int         { return len(s.d) }
