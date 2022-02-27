@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/berquerant/gotypegraph/display"
 	"github.com/berquerant/gotypegraph/load"
+	"github.com/berquerant/gotypegraph/logger"
 	"github.com/berquerant/gotypegraph/profile"
 	"github.com/berquerant/gotypegraph/search"
 	"github.com/berquerant/gotypegraph/util"
@@ -15,6 +17,7 @@ import (
 )
 
 var (
+	outputType       = flag.String("type", "dot", "Output format. json or dot.")
 	searchForeign    = flag.Bool("foreign", false, "Search definitions in foreign packages.")
 	searchUniverse   = flag.Bool("universe", false, "Search definitions in builtin packages.")
 	searchPrivate    = flag.Bool("private", false, "Search private definitions.")
@@ -24,6 +27,9 @@ var (
 	denyPkgRegex     = flag.String("deny.pkg", "", "Deny packages whose name matches this.")
 	searchWorkerNum  = flag.Int("worker", 4, "Number of search workers.")
 	searchBufferSize = flag.Int("buffer", 1000, "Size of search buffers.")
+
+	verbosity = flag.String("v", "info", "Logging verbosity. error, warn, info, debug or verbose.")
+	logRegexp = flag.String("log.regexp", "", "Regexp to grep logs.")
 )
 
 const usage = `Usage of gotypegraph:
@@ -41,6 +47,30 @@ func fail(err error) {
 	}
 }
 
+func initLogger() {
+	logger.SetLevel(logLevel())
+	logger.SetFilter(compileRegex(*logRegexp))
+}
+
+func logLevel() logger.Level {
+	x := strings.ToLower(*verbosity)
+	pref := func(t string) bool { return strings.HasPrefix(x, t) }
+	switch {
+	case pref("v"):
+		return logger.Verbose
+	case pref("d"):
+		return logger.Debug
+	case pref("i"):
+		return logger.Info
+	case pref("w"):
+		return logger.Warn
+	case pref("e"):
+		return logger.Error
+	default:
+		return logger.Info
+	}
+}
+
 func compileRegex(v string) *regexp.Regexp {
 	if v == "" {
 		return nil
@@ -55,7 +85,12 @@ func loadPackages() []*packages.Package {
 }
 
 func newWriter() display.Writer {
-	return display.NewJSONWriter(os.Stdout)
+	switch *outputType {
+	case "dot":
+		return display.NewPackageDotWriter(os.Stdout)
+	default:
+		return display.NewJSONWriter(os.Stdout)
+	}
 }
 
 func newSearcher(pkgs []*packages.Package, opt ...search.UseSearcherOption) search.UseSearcher {
@@ -80,6 +115,7 @@ func main() {
 	flag.Usage = Usage
 	flag.Parse()
 
+	initLogger()
 	profiler := profile.NewProfiler(profile.NewStopwatch())
 	profiler.Init()
 	defer func() {

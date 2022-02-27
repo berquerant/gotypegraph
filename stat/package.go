@@ -43,6 +43,7 @@ type (
 		Pkg() Pkg
 		Deps() []PkgStatDep
 		Get(Pkg) (PkgStatDep, bool)
+		Weight() int
 	}
 	PkgStatDep interface {
 		Pkg() Pkg
@@ -174,6 +175,13 @@ func (s *pkgStatCell) Deps() []PkgStatDep {
 func (s *pkgStatCell) Get(pkg Pkg) (PkgStatDep, bool) {
 	dep, ok := s.deps[pkg.ID()]
 	return dep, ok
+}
+func (s *pkgStatCell) Weight() int {
+	var n int
+	for _, dep := range s.deps {
+		n += dep.weight
+	}
+	return n
 }
 
 func NewPkgStatCalculator() PkgStatCalculator {
