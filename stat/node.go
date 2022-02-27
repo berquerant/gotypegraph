@@ -19,6 +19,12 @@ type (
 	}
 )
 
+func NewNode(n search.Node) Node {
+	return &node{
+		node: n,
+	}
+}
+
 func (s *node) MarshalJSON() ([]byte, error) {
 	d := map[string]interface{}{
 		"pkg":  s.Pkg().ID(),
@@ -48,6 +54,10 @@ func (s *node) ID() string {
 /* node stat of dependencies */
 
 type (
+	NodeStatPkgMap interface {
+		PkgList() []Pkg
+		Get(Pkg) ([]NodeStat, bool)
+	}
 	NodeStatSet interface {
 		Stats() []NodeStat
 		Get(Node) (NodeStat, bool)
@@ -62,6 +72,7 @@ type (
 		Node() Node
 		Deps() []NodeStatDep
 		Get(Node) (NodeStatDep, bool)
+		Weight() int
 	}
 	NodeStatDep interface {
 		Node() Node
@@ -72,6 +83,36 @@ type (
 		Result() NodeStatSet
 	}
 )
+
+func NewNodeStatPkgMap(stats []NodeStat) NodeStatPkgMap {
+	d := map[string][]NodeStat{}
+	for _, x := range stats {
+		id := x.Node().Pkg().ID()
+		d[id] = append(d[id], x)
+	}
+	return &nodeStatPkgMap{
+		d: d,
+	}
+}
+
+type nodeStatPkgMap struct {
+	d map[string][]NodeStat
+}
+
+func (s *nodeStatPkgMap) Get(pkg Pkg) ([]NodeStat, bool) {
+	xs, ok := s.d[pkg.ID()]
+	return xs, ok
+}
+
+func (s *nodeStatPkgMap) PkgList() []Pkg {
+	pkgs := []Pkg{}
+	for _, x := range s.d {
+		if len(x) > 0 {
+			pkgs = append(pkgs, x[0].Node().Pkg())
+		}
+	}
+	return pkgs
+}
 
 type nodeStatSet struct {
 	stats map[string]*nodeStat
@@ -141,6 +182,13 @@ type nodeStatCell struct {
 	deps map[string]*nodeStatDep
 }
 
+func (s *nodeStatCell) Weight() int {
+	var n int
+	for _, dep := range s.deps {
+		n += dep.weight
+	}
+	return n
+}
 func (s *nodeStatCell) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"node": s.node,
@@ -162,6 +210,7 @@ func (s *nodeStatCell) Deps() []NodeStatDep {
 	)
 	for _, x := range s.deps {
 		deps[i] = x
+		i++
 	}
 	return deps
 }

@@ -56,7 +56,7 @@ func generateNodeLabelHTML(
     <td><b>%s</b></td>
   </tr>
   <tr>
-    <td align="left"><b>IO</b></td>
+    <td align="left"><b>RefDef</b></td>
     <td align="right">%d</td>
   </tr>
   <tr>

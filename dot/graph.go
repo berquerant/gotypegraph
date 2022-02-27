@@ -164,6 +164,12 @@ type (
 	}
 )
 
+func NewSubgraphList() SubgraphList {
+	return &subgraphList{
+		list: []Subgraph{},
+	}
+}
+
 func (s *subgraphList) Len() int {
 	if s == nil {
 		return 0

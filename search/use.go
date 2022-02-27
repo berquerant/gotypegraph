@@ -388,7 +388,7 @@ func (s *node) Obj() Object     { return s.obj }
 func (s *node) Type() NodeType  { return s.nodeType }
 func (s *node) Info() *NodeInfo { return s.nodeInfo }
 func (s *node) Name() string    { return s.obj.Name() }
-func (s *node) RecvString(opt ...NodeOption) string {
+func (s *node) RecvString(opt ...NodeOption) string { // TODO: recv of field
 	var conf NodeConfig
 	for _, x := range opt {
 		x(&conf)

@@ -18,6 +18,7 @@ import (
 
 var (
 	outputType       = flag.String("type", "dot", "Output format. json or dot.")
+	useStat          = flag.Bool("stat", false, "Generate stat graph when type is dot.")
 	searchForeign    = flag.Bool("foreign", false, "Search definitions in foreign packages.")
 	searchUniverse   = flag.Bool("universe", false, "Search definitions in builtin packages.")
 	searchPrivate    = flag.Bool("private", false, "Search private definitions.")
@@ -87,7 +88,10 @@ func loadPackages() []*packages.Package {
 func newWriter() display.Writer {
 	switch *outputType {
 	case "dot":
-		return display.NewPackageDotWriter(os.Stdout)
+		if *useStat {
+			return display.NewPackageDotWriter(os.Stdout)
+		}
+		return display.NewNodeDotWriter(os.Stdout)
 	default:
 		return display.NewJSONWriter(os.Stdout)
 	}
@@ -118,9 +122,6 @@ func main() {
 	initLogger()
 	profiler := profile.NewProfiler(profile.NewStopwatch())
 	profiler.Init()
-	defer func() {
-		fmt.Fprint(os.Stderr, profiler.Result().String())
-	}()
 	pkgs := loadPackages()
 	profiler.PkgLoaded(pkgs)
 	var (
@@ -149,4 +150,5 @@ func main() {
 	profiler.Searched()
 	fail(writer.Flush())
 	profiler.Flushed()
+	fmt.Fprint(os.Stderr, profiler.Result().String())
 }

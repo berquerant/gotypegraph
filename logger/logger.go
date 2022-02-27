@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"regexp"
@@ -66,4 +67,9 @@ func Errorf(format string, v ...interface{}) {
 	if toBeLogged(Error) {
 		outputf(fmt.Sprintf("[E] %s", fmt.Sprintf(format, v...)))
 	}
+}
+
+func JSON(v interface{}) []byte {
+	b, _ := json.Marshal(v)
+	return b
 }

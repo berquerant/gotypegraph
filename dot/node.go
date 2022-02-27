@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var escapeTargetRegex = regexp.MustCompile(`[/$.()]`)
+var escapeTargetRegex = regexp.MustCompile(`[/$.()-]`)
 
 func Escape(v string) string {
 	return string(escapeTargetRegex.ReplaceAll([]byte(v), []byte("_")))

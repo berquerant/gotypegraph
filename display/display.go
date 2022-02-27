@@ -16,8 +16,6 @@ type (
 	}
 
 	WriterConfig struct {
-		asRaw bool
-		// asStat bool
 	}
 
 	WriterOption func(*WriterConfig)
@@ -34,6 +32,13 @@ type jsonWriter struct {
 }
 
 func (s *jsonWriter) Write(node search.Use) error {
+	if err := s.write(node); err != nil {
+		return fmt.Errorf("JSONWriter: %w", err)
+	}
+	return nil
+}
+
+func (s *jsonWriter) write(node search.Use) error {
 	js := jsonify.NewUse(node)
 	b, err := json.Marshal(js)
 	if err != nil {
