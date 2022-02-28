@@ -163,8 +163,15 @@ func (s *nodeDotWriter) nodeToTooltipID(node search.Node) string {
 	return fmt.Sprintf("%s.%s", node.Pkg().Path(), s.nodeNameWithRecv(node))
 }
 
+func (s *nodeDotWriter) nodeToTooltipDetails(node search.Node) string {
+	if pkg := node.Pkg().Pkg(); pkg != nil {
+		return fmt.Sprintf("%s %s", s.nodeNameWithRecv(node), pkg.Fset.Position(node.Obj().Pos()))
+	}
+	return s.nodeToTooltipID(node)
+}
+
 func (s *nodeDotWriter) nodeTooltip(st stat.NodeStat) string { // TODO: char limit
-	tooltip := newRefDefTooltip(st.Node().Pkg().Pkg().Path())
+	tooltip := newRefDefTooltip(s.nodeToTooltipDetails(st.Node().Node()))
 	for _, x := range st.Refs().Deps() {
 		tooltip.addRef(newRefDefTooltipElem(s.nodeToTooltipID(x.Node().Node()), x.Weight()))
 	}
