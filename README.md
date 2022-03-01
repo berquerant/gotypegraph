@@ -23,6 +23,8 @@ Flags:
         Search definitions in foreign packages.
   -log.regexp string
         Regexp to grep logs.
+  -noselfloop
+        Ignore self references.
   -private
         Search private definitions.
   -stat

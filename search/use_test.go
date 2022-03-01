@@ -83,6 +83,52 @@ func TestUseSearcher(t *testing.T) {
 
 	for _, tc := range []useSearcherTestcase{
 		{
+			title: "with foreign ignore same pkg",
+			opt: []search.UseSearcherOption{
+				search.WithUseSearcherSearchForeign(true),
+				search.WithUseSearcherIgnorePkgSelfloop(true),
+			},
+			want: []*useSearcherResult{
+				{
+					refPkg:      "sub",
+					refIdent:    "Fprintln",
+					refASTIdent: "SameNameFunc",
+					refNodeType: search.FuncNodeType,
+					defPkg:      "fmt",
+					defIdent:    "Fprintln",
+					defNodeType: search.FuncNodeType,
+				},
+				{
+					refPkg:      "sub",
+					refIdent:    "Stderr",
+					refASTIdent: "SameNameFunc",
+					refNodeType: search.FuncNodeType,
+					defPkg:      "os",
+					defIdent:    "Stderr",
+					defNodeType: search.VarNodeType,
+				},
+				{
+					refPkg:      "testpkg",
+					refIdent:    "Println",
+					refASTIdent: "SameNameFunc",
+					refNodeType: search.MethodNodeType,
+					refRecv:     "*X",
+					defPkg:      "fmt",
+					defIdent:    "Println",
+					defNodeType: search.FuncNodeType,
+				},
+				{
+					refPkg:      "testpkg",
+					refIdent:    "SameNameFunc",
+					refASTIdent: "SameNameFunc",
+					refNodeType: search.FuncNodeType,
+					defPkg:      "sub",
+					defIdent:    "SameNameFunc",
+					defNodeType: search.FuncNodeType,
+				},
+			},
+		},
+		{
 			title: "with foreign",
 			opt: []search.UseSearcherOption{
 				search.WithUseSearcherSearchForeign(true),

@@ -27,13 +27,15 @@ type Object interface {
 
 type (
 	UseSearcherConfig struct {
-		resultBufferSize int
-		workerNum        int
-		searchUniverse   bool
-		searchForeign    bool
-		searchPrivate    bool
-		pkgNameRegexp    util.RegexpPair
-		objNameRegexp    util.RegexpPair
+		resultBufferSize  int
+		workerNum         int
+		searchUniverse    bool
+		searchForeign     bool
+		searchPrivate     bool
+		ignorePkgSelfloop bool
+		ignoreUseSelfloop bool
+		pkgNameRegexp     util.RegexpPair
+		objNameRegexp     util.RegexpPair
 	}
 
 	UseSearcherOption func(*UseSearcherConfig)
@@ -84,6 +86,12 @@ func NewUseSearcher(
 	if config.objNameRegexp != nil {
 		logger.Debugf("[UseSearcher] use obj name filter")
 		filter = filter.And(ObjectNameFilter(config.objNameRegexp))
+	}
+	if config.ignorePkgSelfloop {
+		logger.Debugf("[UseSearcher] ignore pkg self loop")
+	}
+	if config.ignoreUseSelfloop {
+		logger.Debugf("[UseSearcher] ignore use self loop")
 	}
 
 	return &useSearcher{
@@ -144,15 +152,28 @@ func (s *useSearcher) search(pkg *packages.Package, resultC chan<- Use) {
 			tgt.Ident(),
 			types.ObjectString(tgt.Obj().(types.Object), nil),
 		)
+
+		if s.ignorePkgSelfloop(pkg, tgt.Obj()) {
+			continue
+		}
+
 		astNode, ok := s.refSearcher.Search(pkg, tgt.Ident().Pos())
 		if !ok {
 			// ref's ast should be found
 			continue
 		}
-		valueSpecIndex := s.findValueSpecIndex(astNode, tgt.Ident().Pos())
+		var (
+			valueSpecIndex = s.findValueSpecIndex(astNode, tgt.Ident().Pos())
+			refObj         = s.findObj(pkg, astNode, valueSpecIndex)
+		)
+
+		if s.ignoreUseSelfloop(refObj, tgt.Obj()) {
+			continue
+		}
+
 		rNode := NewRefNode(
 			NewPkg(pkg),
-			s.findObj(pkg, astNode, valueSpecIndex),
+			refObj,
 			&NodeInfo{
 				ValueSpecIndex: valueSpecIndex,
 			},
@@ -188,6 +209,31 @@ func (s *useSearcher) search(pkg *packages.Package, resultC chan<- Use) {
 	}
 }
 
+func (s *useSearcher) ignoreUseSelfloop(left, right Object) bool {
+	if !s.conf.ignoreUseSelfloop {
+		return false
+	}
+	return s.hasSameObj(left, right)
+}
+
+func (*useSearcher) hasSameObj(left, right Object) bool {
+	if (left.Pkg() == nil) != (right.Pkg() == nil) {
+		return false
+	}
+	return left.Pkg() == nil || (left.Pkg().Path() == right.Pkg().Path() && left.Pos() == right.Pos())
+}
+
+func (s *useSearcher) ignorePkgSelfloop(refPkg *packages.Package, defObj Object) bool {
+	if !s.conf.ignorePkgSelfloop {
+		return false
+	}
+	return s.hasSamePkg(refPkg, defObj)
+}
+
+func (*useSearcher) hasSamePkg(refPkg *packages.Package, defObj Object) bool {
+	return defObj.Pkg() != nil && defObj.Pkg().Path() == refPkg.PkgPath
+}
+
 func (*useSearcher) findValueSpecIndex(node ast.Node, pos token.Pos) int {
 	if vs, ok := node.(*ast.ValueSpec); ok {
 		if idx, ok := astutil.FindValueSpecIndex(vs, pos); ok {
@@ -217,6 +263,18 @@ func (s *useSearcher) findObj(pkg *packages.Package, node ast.Node, valueSpecInd
 
 func (s *useSearcher) selectPkg(pkg *packages.Package) bool {
 	return s.conf.pkgNameRegexp == nil || s.conf.pkgNameRegexp.MatchString(pkg.Name)
+}
+
+func WithUseSearcherIgnoreUseSelfloop(v bool) UseSearcherOption {
+	return func(c *UseSearcherConfig) {
+		c.ignoreUseSelfloop = v
+	}
+}
+
+func WithUseSearcherIgnorePkgSelfloop(v bool) UseSearcherOption {
+	return func(c *UseSearcherConfig) {
+		c.ignorePkgSelfloop = v
+	}
 }
 
 func WithUseSearcherObjNameRegexp(v util.RegexpPair) UseSearcherOption {

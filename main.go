@@ -22,6 +22,7 @@ var (
 	searchForeign    = flag.Bool("foreign", false, "Search definitions in foreign packages.")
 	searchUniverse   = flag.Bool("universe", false, "Search definitions in builtin packages.")
 	searchPrivate    = flag.Bool("private", false, "Search private definitions.")
+	ignoreSelfloop   = flag.Bool("noselfloop", false, "Ignore self references.")
 	acceptNameRegex  = flag.String("accept.name", "", "Accept objects whose name matches this.")
 	denyNameRegex    = flag.String("deny.name", "", "Deny objects whose name matches this.")
 	acceptPkgRegex   = flag.String("accept.pkg", "", "Accept packages whose name matches this.")
@@ -97,6 +98,39 @@ func newWriter() display.Writer {
 	}
 }
 
+func ignoreSelfloopOptions() []search.UseSearcherOption {
+	if !*ignoreSelfloop {
+		return nil
+	}
+	switch *outputType {
+	case "dot":
+		if *useStat {
+			return []search.UseSearcherOption{search.WithUseSearcherIgnorePkgSelfloop(true)}
+		}
+		return []search.UseSearcherOption{search.WithUseSearcherIgnoreUseSelfloop(true)}
+	default:
+		return nil
+	}
+}
+
+func searcherOptions() []search.UseSearcherOption {
+	return append([]search.UseSearcherOption{
+		search.WithUseSearcherSearchForeign(*searchForeign),
+		search.WithUseSearcherSearchUniverse(*searchUniverse),
+		search.WithUseSearcherSearchPrivate(*searchPrivate),
+		search.WithUseSearcherPkgNameRegexp(util.NewRegexpPair(
+			compileRegex(*acceptPkgRegex),
+			compileRegex(*denyPkgRegex),
+		)),
+		search.WithUseSearcherObjNameRegexp(util.NewRegexpPair(
+			compileRegex(*acceptNameRegex),
+			compileRegex(*denyNameRegex),
+		)),
+		search.WithUseSearcherWorkerNum(*searchWorkerNum),
+		search.WithUseSearcherResultBufferSize(*searchBufferSize),
+	}, ignoreSelfloopOptions()...)
+}
+
 func newSearcher(pkgs []*packages.Package, opt ...search.UseSearcherOption) search.UseSearcher {
 	var (
 		defSetExtractor = search.NewDefSetExtractor(search.NewDefExtractor())
@@ -127,19 +161,7 @@ func main() {
 	var (
 		searcher = newSearcher(
 			pkgs,
-			search.WithUseSearcherSearchForeign(*searchForeign),
-			search.WithUseSearcherSearchUniverse(*searchUniverse),
-			search.WithUseSearcherSearchPrivate(*searchPrivate),
-			search.WithUseSearcherPkgNameRegexp(util.NewRegexpPair(
-				compileRegex(*acceptPkgRegex),
-				compileRegex(*denyPkgRegex),
-			)),
-			search.WithUseSearcherObjNameRegexp(util.NewRegexpPair(
-				compileRegex(*acceptNameRegex),
-				compileRegex(*denyNameRegex),
-			)),
-			search.WithUseSearcherWorkerNum(*searchWorkerNum),
-			search.WithUseSearcherResultBufferSize(*searchBufferSize),
+			searcherOptions()...,
 		)
 		writer = newWriter()
 	)
