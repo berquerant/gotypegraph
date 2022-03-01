@@ -82,6 +82,7 @@ func (s *nodeDotWriter) build() dot.Graph {
 				Add(dot.NewAttr("color", "lightgrey")).
 				Add(dot.NewAttr("style", "filled")).
 				Add(dot.NewAttr("label", pkg.Pkg().Name())).
+				Add(dot.NewAttr("tooltip", pkg.Pkg().Path())).
 				Add(dot.NewAttr("fontsize", "24"))),
 		)
 		subgraphList.Add(subgraph)
