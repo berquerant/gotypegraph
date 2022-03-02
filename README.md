@@ -19,12 +19,20 @@ Flags:
         Deny objects whose name matches this.
   -deny.pkg string
         Deny packages whose name matches this.
+  -fontsize,max int
+        Max fontsize used for text in dot. (default 24)
+  -fontsize.min int
+        Min fontsize used for text in dot. (default 8)
   -foreign
         Search definitions in foreign packages.
   -log.regexp string
         Regexp to grep logs.
   -noselfloop
         Ignore self references.
+  -penwidth.max int
+        Max penwidth used to draw lines in dot. (default 1)
+  -penwidth.min int
+        Min penwidth used to draw lines in dot. (default 1)
   -private
         Search private definitions.
   -stat
@@ -35,6 +43,10 @@ Flags:
         Search definitions in builtin packages.
   -v string
         Logging verbosity. error, warn, info, debug or verbose. (default "info")
+  -weight.max int
+        Max weight for dot. (default 100)
+  -weight.min int
+        Min weight for dot. (default 1)
   -worker int
         Number of search workers. (default 4)
 ```
