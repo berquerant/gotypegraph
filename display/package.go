@@ -82,15 +82,17 @@ func (s *packageDotWriter) build() dot.Graph {
 
 	for _, dep := range deps {
 		var (
-			penwidth = penwidthRanking.get(dep.Weight())
-			weight   = weightRanking.get(dep.Weight())
-			tooltip  = s.edgeTooltip(dep)
-			label    = s.edgeLabel(dep)
-			attrList = dot.NewAttrList().
+			penwidth  = penwidthRanking.get(dep.Weight())
+			arrowsize = float64(penwidth) / 2
+			weight    = weightRanking.get(dep.Weight())
+			tooltip   = s.edgeTooltip(dep)
+			label     = s.edgeLabel(dep)
+			attrList  = dot.NewAttrList().
 					Add(dot.NewAttr("label", label)).
 					Add(dot.NewAttr("tooltip", tooltip)).
 					Add(dot.NewAttr("labeltooltip", tooltip)).
 					Add(dot.NewAttr("penwidth", strconv.Itoa(penwidth))).
+					Add(dot.NewAttr("arrowsize", fmt.Sprint(arrowsize))).
 					Add(dot.NewAttr("weight", strconv.Itoa(weight)))
 			edge = dot.NewEdge(
 				dot.ID(dep.Ref().ID()),
