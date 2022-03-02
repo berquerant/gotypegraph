@@ -15,13 +15,19 @@ type packageDotWriter struct {
 	w           io.Writer
 	depCalc     stat.PkgDepCalculator
 	statDepCalc stat.PkgStatCalculator
+	conf        *WriterConfig
 }
 
-func NewPackageDotWriter(w io.Writer) Writer {
+func NewPackageDotWriter(w io.Writer, opt ...WriterOption) Writer {
+	conf := newWriterConfig()
+	for _, x := range opt {
+		x(conf)
+	}
 	return &packageDotWriter{
 		w:           w,
 		depCalc:     stat.NewPkgDepCalculator(),
 		statDepCalc: stat.NewPkgStatCalculator(),
+		conf:        conf,
 	}
 }
 
@@ -97,28 +103,28 @@ func (s *packageDotWriter) build() dot.Graph {
 	return dot.NewGraph("G", nodeList, edgeList)
 }
 
-func (*packageDotWriter) fontsizeRanking(stats stat.PkgStatSet) *attrRanking {
+func (s *packageDotWriter) fontsizeRanking(stats stat.PkgStatSet) *attrRanking {
 	r := util.NewRanking()
 	for _, x := range stats.Stats() {
 		r.Add(x.Weight())
 	}
-	return newFontsizeRanking(r)
+	return s.conf.newFontsizeRanking(r)
 }
 
-func (*packageDotWriter) weightRanking(deps []stat.PkgDep) *attrRanking {
+func (s *packageDotWriter) weightRanking(deps []stat.PkgDep) *attrRanking {
 	r := util.NewRanking()
 	for _, x := range deps {
 		r.Add(x.Weight())
 	}
-	return newWeightRanking(r)
+	return s.conf.newWeightRanking(r)
 }
 
-func (*packageDotWriter) penwidthRanking(deps []stat.PkgDep) *attrRanking {
+func (s *packageDotWriter) penwidthRanking(deps []stat.PkgDep) *attrRanking {
 	r := util.NewRanking()
 	for _, x := range deps {
 		r.Add(x.Weight())
 	}
-	return newPenwidthRanking(r)
+	return s.conf.newPenwidthRanking(r)
 }
 
 func (*packageDotWriter) edgeLabel(dep stat.PkgDep) string {

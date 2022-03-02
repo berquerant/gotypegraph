@@ -15,13 +15,19 @@ type nodeDotWriter struct {
 	w           io.Writer
 	depCalc     stat.NodeDepCalculator
 	statDepCalc stat.NodeStatCalculator
+	conf        *WriterConfig
 }
 
-func NewNodeDotWriter(w io.Writer) Writer {
+func NewNodeDotWriter(w io.Writer, opt ...WriterOption) Writer {
+	conf := newWriterConfig()
+	for _, x := range opt {
+		x(conf)
+	}
 	return &nodeDotWriter{
 		w:           w,
 		depCalc:     stat.NewNodeDepCalculator(),
 		statDepCalc: stat.NewNodeStatCalculator(),
+		conf:        conf,
 	}
 }
 
@@ -50,15 +56,18 @@ func (s *nodeDotWriter) build() dot.Graph {
 
 		subgraphList = dot.NewSubgraphList()
 
-		fontsizeRanking = s.fontsizeRanking(stats)
+		fontsizeRanking    = s.fontsizeRanking(stats)
+		pkgFontsizeRanking = s.pkgFontsizeRanking(pkgStatMap)
 	)
 
 	for _, pkg := range pkgStatMap.PkgList() {
 		var (
 			statList, _ = pkgStatMap.Get(pkg)
 			nodeList    = dot.NewNodeList()
+			pkgWeight   int
 		)
 		for _, st := range statList {
+			pkgWeight += st.Weight()
 			var (
 				fontsize = fontsizeRanking.get(st.Weight())
 				tooltip  = s.nodeTooltip(st)
@@ -74,6 +83,7 @@ func (s *nodeDotWriter) build() dot.Graph {
 			)
 			nodeList.Add(node)
 		}
+		fontsize := pkgFontsizeRanking.get(pkgWeight)
 		subgraph := dot.NewSubgraph(
 			dot.ID(pkg.ID()),
 			nodeList,
@@ -83,7 +93,7 @@ func (s *nodeDotWriter) build() dot.Graph {
 				Add(dot.NewAttr("style", "filled")).
 				Add(dot.NewAttr("label", pkg.Pkg().Name())).
 				Add(dot.NewAttr("tooltip", pkg.Pkg().Path())).
-				Add(dot.NewAttr("fontsize", "24"))),
+				Add(dot.NewAttr("fontsize", strconv.Itoa(fontsize)))),
 		)
 		subgraphList.Add(subgraph)
 	}
@@ -182,26 +192,39 @@ func (s *nodeDotWriter) nodeTooltip(st stat.NodeStat) string { // TODO: char lim
 	return tooltip.String()
 }
 
-func (*nodeDotWriter) fontsizeRanking(stats stat.NodeStatSet) *attrRanking {
+func (s *nodeDotWriter) pkgFontsizeRanking(stats stat.NodeStatPkgMap) *attrRanking {
+	r := util.NewRanking()
+	for _, pkg := range stats.PkgList() {
+		var w int
+		statList, _ := stats.Get(pkg)
+		for _, st := range statList {
+			w += st.Weight()
+		}
+		r.Add(w)
+	}
+	return s.conf.newFontsizeRanking(r)
+}
+
+func (s *nodeDotWriter) fontsizeRanking(stats stat.NodeStatSet) *attrRanking {
 	r := util.NewRanking()
 	for _, x := range stats.Stats() {
 		r.Add(x.Weight())
 	}
-	return newFontsizeRanking(r)
+	return s.conf.newFontsizeRanking(r)
 }
 
-func (*nodeDotWriter) weightRanking(deps []stat.NodeDep) *attrRanking {
+func (s *nodeDotWriter) weightRanking(deps []stat.NodeDep) *attrRanking {
 	r := util.NewRanking()
 	for _, x := range deps {
 		r.Add(x.Weight())
 	}
-	return newWeightRanking(r)
+	return s.conf.newWeightRanking(r)
 }
 
-func (*nodeDotWriter) penwidthRanking(deps []stat.NodeDep) *attrRanking {
+func (s *nodeDotWriter) penwidthRanking(deps []stat.NodeDep) *attrRanking {
 	r := util.NewRanking()
 	for _, x := range deps {
 		r.Add(x.Weight())
 	}
-	return newPenwidthRanking(r)
+	return s.conf.newPenwidthRanking(r)
 }

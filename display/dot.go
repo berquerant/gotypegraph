@@ -7,17 +7,6 @@ import (
 	"github.com/berquerant/gotypegraph/util"
 )
 
-/* rankings */
-
-const (
-	minFontsize = 8
-	maxFontsize = 24
-	minPenwidth = 1
-	maxPenwidth = 5
-	minWeight   = 1
-	maxWeight   = 100
-)
-
 type attrRanking struct {
 	r util.Ranking
 	p util.Percentiler
@@ -25,24 +14,24 @@ type attrRanking struct {
 
 func (s *attrRanking) get(v int) int { return s.p.Percentile(s.r.GetPercentile(v)) }
 
-func newFontsizeRanking(r util.Ranking) *attrRanking {
+func (s *WriterConfig) newFontsizeRanking(r util.Ranking) *attrRanking {
 	return &attrRanking{
 		r: r,
-		p: util.NewPercentiler(minFontsize, maxFontsize),
+		p: util.NewPercentiler(s.minFontsize, s.maxFontsize),
 	}
 }
 
-func newPenwidthRanking(r util.Ranking) *attrRanking {
+func (s *WriterConfig) newPenwidthRanking(r util.Ranking) *attrRanking {
 	return &attrRanking{
 		r: r,
-		p: util.NewPercentiler(minPenwidth, maxPenwidth),
+		p: util.NewPercentiler(s.minPenwidth, s.maxPenwidth),
 	}
 }
 
-func newWeightRanking(r util.Ranking) *attrRanking {
+func (s *WriterConfig) newWeightRanking(r util.Ranking) *attrRanking {
 	return &attrRanking{
 		r: r,
-		p: util.NewPercentiler(minWeight, maxWeight),
+		p: util.NewPercentiler(s.minWeight, s.maxWeight),
 	}
 }
 

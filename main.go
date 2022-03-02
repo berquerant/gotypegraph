@@ -29,6 +29,12 @@ var (
 	denyPkgRegex     = flag.String("deny.pkg", "", "Deny packages whose name matches this.")
 	searchWorkerNum  = flag.Int("worker", 4, "Number of search workers.")
 	searchBufferSize = flag.Int("buffer", 1000, "Size of search buffers.")
+	minFontsize      = flag.Int("fontsize.min", 8, "Min fontsize used for text in dot.")
+	maxFontsize      = flag.Int("fontsize.max", 24, "Max fontsize used for text in dot.")
+	minPenwidth      = flag.Int("penwidth.min", 1, "Min penwidth used to draw lines in dot.")
+	maxPenwidth      = flag.Int("penwidth.max", 1, "Max penwidth used to draw lines in dot.")
+	minWeight        = flag.Int("weight.min", 1, "Min weight for dot.")
+	maxWeight        = flag.Int("weight.max", 100, "Max weight for dot.")
 
 	verbosity = flag.String("v", "info", "Logging verbosity. error, warn, info, debug or verbose.")
 	logRegexp = flag.String("log.regexp", "", "Regexp to grep logs.")
@@ -86,13 +92,25 @@ func loadPackages() []*packages.Package {
 	return pkgs
 }
 
+func writerOptions() []display.WriterOption {
+	return []display.WriterOption{
+		display.WithWriterMinFontsize(*minFontsize),
+		display.WithWriterMaxFontsize(*maxFontsize),
+		display.WithWriterMinPenwidth(*minPenwidth),
+		display.WithWriterMaxPenwidth(*maxPenwidth),
+		display.WithWriterMinWeight(*minWeight),
+		display.WithWriterMaxWeight(*maxWeight),
+	}
+}
+
 func newWriter() display.Writer {
 	switch *outputType {
 	case "dot":
+		opt := writerOptions()
 		if *useStat {
-			return display.NewPackageDotWriter(os.Stdout)
+			return display.NewPackageDotWriter(os.Stdout, opt...)
 		}
-		return display.NewNodeDotWriter(os.Stdout)
+		return display.NewNodeDotWriter(os.Stdout, opt...)
 	default:
 		return display.NewJSONWriter(os.Stdout)
 	}
