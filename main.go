@@ -36,7 +36,7 @@ var (
 	minWeight        = flag.Int("weight.min", 1, "Min weight for dot.")
 	maxWeight        = flag.Int("weight.max", 100, "Max weight for dot.")
 
-	verbosity = flag.String("v", "info", "Logging verbosity. error, warn, info, debug or verbose.")
+	verbosity = flag.String("v", "info", "Logging verbosity. error, warn, info, verbose or debug.")
 	logRegexp = flag.String("log.regexp", "", "Regexp to grep logs.")
 )
 
@@ -51,7 +51,8 @@ func Usage() {
 
 func fail(err error) {
 	if err != nil {
-		panic(err)
+		logger.Errorf("%v", err)
+		os.Exit(1)
 	}
 }
 
@@ -174,8 +175,10 @@ func main() {
 	initLogger()
 	profiler := profile.NewProfiler(profile.NewStopwatch())
 	profiler.Init()
+	logger.Infof("Load packages")
 	pkgs := loadPackages()
 	profiler.PkgLoaded(pkgs)
+	logger.Infof("%d packages loaded", len(pkgs))
 	var (
 		searcher = newSearcher(
 			pkgs,
@@ -183,11 +186,13 @@ func main() {
 		)
 		writer = newWriter()
 	)
+	logger.Infof("Search and write")
 	for result := range searcher.Search() {
 		fail(writer.Write(result))
 		profiler.Add(result)
 	}
 	profiler.Searched()
+	logger.Infof("Flush")
 	fail(writer.Flush())
 	profiler.Flushed()
 	fmt.Fprint(os.Stderr, profiler.Result().String())

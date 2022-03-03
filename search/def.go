@@ -49,15 +49,15 @@ func (*defExtractor) Extract(f *ast.File) Def {
 			for _, spec := range decl.Specs {
 				switch spec := spec.(type) {
 				case *ast.TypeSpec:
-					logger.Verbosef("[DefExtractor] TypeSpec %s %d", spec.Name, spec.Pos())
+					logger.Debugf("[DefExtractor] TypeSpec %s %d", spec.Name, spec.Pos())
 					typeSpecs = append(typeSpecs, spec)
 				case *ast.ValueSpec:
-					logger.Verbosef("[DefExtractor] ValueSpec %v %d", spec.Names, spec.Pos())
+					logger.Debugf("[DefExtractor] ValueSpec %v %d", spec.Names, spec.Pos())
 					valueSpecs = append(valueSpecs, spec)
 				}
 			}
 		case *ast.FuncDecl:
-			logger.Verbosef("[DefExtractor] FuncDecl %s %d", decl.Name, decl.Pos())
+			logger.Debugf("[DefExtractor] FuncDecl %s %d", decl.Name, decl.Pos())
 			funcDecls = append(funcDecls, decl)
 		}
 	}
@@ -77,10 +77,10 @@ type defSetExtractor struct {
 func (s *defSetExtractor) Extract(pkg *packages.Package) DefSet {
 	defs := make([]Def, len(pkg.Syntax))
 	for i, f := range pkg.Syntax {
-		logger.Debugf("[DefSetExtractor] load %s (%s)", pkg.Name, pkg.ID)
+		logger.Debugf("[DefSetExtractor] load %s (%s) %d", pkg.Name, pkg.ID, i)
 		defs[i] = s.extractor.Extract(f)
 	}
-	logger.Debugf("[DefSetExtractor] %s (%s) %d files loaded", pkg.Name, pkg.ID, len(defs))
+	logger.Verbosef("[DefSetExtractor] %s (%s) %d files loaded", pkg.Name, pkg.ID, len(defs))
 	return NewDefSet(pkg, defs)
 }
 

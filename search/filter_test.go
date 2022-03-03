@@ -28,7 +28,7 @@ func (*mockObj) Id() string            { return "" }
 func (*mockObj) String() string        { return "" }
 
 func TestDefSetFilter(t *testing.T) {
-	logger.SetLevel(logger.Verbose)
+	logger.SetLevel(logger.Debug)
 	const src = `package testpkg
 func main() {
   const internalVar = "int"

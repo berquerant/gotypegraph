@@ -39,7 +39,7 @@ type refPkgSearcher struct {
 
 func (s *refPkgSearcher) Search(pkg *packages.Package, pos token.Pos) (ast.Node, bool) {
 	if defSet, ok := s.defSets[pkg.ID]; ok {
-		logger.Verbosef("[RefPkgSearcher] %s (%s) %d", pkg.Name, pkg.ID, pos)
+		logger.Debugf("[RefPkgSearcher] %s (%s) %d", pkg.Name, pkg.ID, pos)
 		return s.searcher.Search(defSet, pos)
 	}
 	return nil, false
@@ -65,7 +65,7 @@ func (s *refSearcher) Search(defSet DefSet, pos token.Pos) (node ast.Node, found
 			return true
 		})
 	}
-	logger.Verbosef("[RefSearcher] %s (%s) %d %#v", defSet.Pkg().Name, defSet.Pkg().ID, pos, node)
+	logger.Debugf("[RefSearcher] %s (%s) %d %#v", defSet.Pkg().Name, defSet.Pkg().ID, pos, node)
 	return
 }
 

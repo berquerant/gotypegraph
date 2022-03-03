@@ -56,7 +56,7 @@ func (s *objExtractorTestcase) test(t *testing.T) {
 }
 
 func TestObjExtractor(t *testing.T) {
-	logger.SetLevel(logger.Verbose)
+	logger.SetLevel(logger.Debug)
 	const src = `package testpkg
 func f1() {}
 type T1 struct{}

@@ -63,7 +63,7 @@ func NewUseSearcher(
 
 	pkgSet := make(map[string]*packages.Package, len(pkgs))
 	for _, pkg := range pkgs {
-		logger.Debugf("[UseSearcher] with pkg %s (%s)", pkg.Name, pkg.PkgPath)
+		logger.Verbosef("[UseSearcher] with pkg %s (%s)", pkg.Name, pkg.PkgPath)
 		pkgSet[pkg.PkgPath] = pkg
 	}
 	filter := defSetFilter
@@ -114,6 +114,8 @@ type useSearcher struct {
 }
 
 func (s *useSearcher) Search() <-chan Use {
+	logger.Debugf("[UseSearcher] start search %d worker %d buffer", s.conf.workerNum, s.conf.resultBufferSize)
+	defer logger.Debugf("[UseSearcher] end search")
 	var (
 		resultC = make(chan Use, s.conf.resultBufferSize)
 		pkgC    = make(chan *packages.Package, s.conf.workerNum)
@@ -143,10 +145,15 @@ func (s *useSearcher) search(pkg *packages.Package, resultC chan<- Use) {
 	if !s.selectPkg(pkg) {
 		return
 	}
-	logger.Debugf("[UseSearcher] search %s %s", pkg.Name, pkg.PkgPath)
+	var targetNum int
+	logger.Verbosef("[UseSearcher] search %s %s", pkg.Name, pkg.PkgPath)
+	defer func() {
+		logger.Verbosef("[UseSearcher] searched %s %s %d targets", pkg.Name, pkg.PkgPath, targetNum)
+	}()
 
 	for tgt := range s.tgtExtractor.Extract(pkg, s.filter) {
-		logger.Verbosef("[UseSearcher] target %s (%s) %s %s",
+		targetNum++
+		logger.Debugf("[UseSearcher] target %s (%s) %s %s",
 			pkg.Name,
 			pkg.PkgPath,
 			tgt.Ident(),

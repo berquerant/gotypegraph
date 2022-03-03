@@ -13,8 +13,8 @@ const (
 	Error Level = iota
 	Warn
 	Info
-	Debug
 	Verbose
+	Debug
 )
 
 func (s Level) LessEqual(other Level) bool { return int(s) <= int(other) }

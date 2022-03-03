@@ -54,7 +54,7 @@ func (s *targetExtractor) Extract(pkg *packages.Package, filter Filter) <-chan T
 	resultC := make(chan Target, s.conf.resultBufferSize)
 	go func() {
 		for ident, obj := range pkg.TypesInfo.Uses {
-			logger.Verbosef("[TargetExtractor] %s (%s) %s %s", pkg.Name, pkg.PkgPath, ident, types.ObjectString(obj, nil))
+			logger.Debugf("[TargetExtractor] %s (%s) %s %s", pkg.Name, pkg.PkgPath, ident, types.ObjectString(obj, nil))
 			tgt := NewTarget(ident, obj)
 			if filter != nil && filter(tgt) {
 				resultC <- tgt

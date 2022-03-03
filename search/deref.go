@@ -23,6 +23,6 @@ func NewObjExtractor() ObjExtractor {
 
 func (*objExtractor) Extract(pkg *packages.Package, ident *ast.Ident) (Object, bool) {
 	obj, ok := pkg.TypesInfo.Defs[ident]
-	logger.Verbosef("[ObjExtractor] %s", types.ObjectString(obj, nil))
+	logger.Debugf("[ObjExtractor] %s", types.ObjectString(obj, nil))
 	return obj, ok
 }

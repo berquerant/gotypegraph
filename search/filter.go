@@ -73,16 +73,16 @@ func DefSetFilter(setList []DefSet) Filter {
 			for _, vs := range def.ValueSpecs() {
 				for _, nm := range vs.Names {
 					posSet[nm.Pos()] = true
-					logger.Verbosef("[DefSetFilter][init][%s][valueSpec] %s %s %d", path, nm, fSet.Position(nm.Pos()), nm.Pos())
+					logger.Debugf("[DefSetFilter][init][%s][valueSpec] %s %s %d", path, nm, fSet.Position(nm.Pos()), nm.Pos())
 				}
 			}
 			for _, fd := range def.FuncDecls() {
 				posSet[fd.Name.Pos()] = true
-				logger.Verbosef("[DefSetFilter][init][%s][funcDecl] %s %s %d", path, fd.Name, fSet.Position(fd.Name.Pos()), fd.Pos())
+				logger.Debugf("[DefSetFilter][init][%s][funcDecl] %s %s %d", path, fd.Name, fSet.Position(fd.Name.Pos()), fd.Pos())
 			}
 			for _, ts := range def.TypeSpecs() {
 				posSet[ts.Name.Pos()] = true
-				logger.Verbosef("[DefSetFilter][init][%s][typeSpec] %s %s %d", path, ts.Name, fSet.Position(ts.Name.Pos()), ts.Pos())
+				logger.Debugf("[DefSetFilter][init][%s][typeSpec] %s %s %d", path, ts.Name, fSet.Position(ts.Name.Pos()), ts.Pos())
 			}
 		}
 		pkgSet[path] = posSet
