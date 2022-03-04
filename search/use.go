@@ -50,6 +50,7 @@ func NewUseSearcher(
 	refSearcher RefPkgSearcher,
 	objExtractor ObjExtractor,
 	tgtExtractor TargetExtractor,
+	fieldSearcher FieldSearcher,
 	defSetFilter Filter,
 	opt ...UseSearcherOption,
 ) UseSearcher {
@@ -95,22 +96,24 @@ func NewUseSearcher(
 	}
 
 	return &useSearcher{
-		pkgSet:       pkgSet,
-		objExtractor: objExtractor,
-		refSearcher:  refSearcher,
-		tgtExtractor: tgtExtractor,
-		filter:       filter,
-		conf:         &config,
+		pkgSet:        pkgSet,
+		objExtractor:  objExtractor,
+		refSearcher:   refSearcher,
+		tgtExtractor:  tgtExtractor,
+		fieldSearcher: fieldSearcher,
+		filter:        filter,
+		conf:          &config,
 	}
 }
 
 type useSearcher struct {
-	pkgSet       map[string]*packages.Package // pkg path => pkg
-	objExtractor ObjExtractor
-	refSearcher  RefPkgSearcher
-	tgtExtractor TargetExtractor
-	filter       Filter
-	conf         *UseSearcherConfig
+	pkgSet        map[string]*packages.Package // pkg path => pkg
+	objExtractor  ObjExtractor
+	refSearcher   RefPkgSearcher
+	tgtExtractor  TargetExtractor
+	fieldSearcher FieldSearcher
+	filter        Filter
+	conf          *UseSearcherConfig
 }
 
 func (s *useSearcher) Search() <-chan Use {
@@ -188,13 +191,18 @@ func (s *useSearcher) search(pkg *packages.Package, resultC chan<- Use) {
 			tgt.Ident(),
 		)
 
-		var dNode DefNode
+		var (
+			dNode DefNode
+			recv  = s.findRecv(tgt.Obj().Pkg(), tgt.Obj().Pos())
+		)
 		switch {
 		case tgt.Obj().Pkg() == nil:
 			dNode = NewDefNode(
 				NewBuiltinPkg(),
 				tgt.Obj(),
-				nil,
+				&NodeInfo{
+					Recv: recv,
+				},
 			)
 		default:
 			objPkg := tgt.Obj().Pkg()
@@ -202,13 +210,17 @@ func (s *useSearcher) search(pkg *packages.Package, resultC chan<- Use) {
 				dNode = NewDefNode(
 					NewPkg(defPkg),
 					tgt.Obj(),
-					nil,
+					&NodeInfo{
+						Recv: recv,
+					},
 				)
 			} else {
 				dNode = NewDefNode(
 					NewPkgWithName(objPkg.Name(), objPkg.Path()),
 					tgt.Obj(),
-					nil,
+					&NodeInfo{
+						Recv: recv,
+					},
 				)
 			}
 		}
@@ -248,6 +260,13 @@ func (*useSearcher) findValueSpecIndex(node ast.Node, pos token.Pos) int {
 		}
 	}
 	return -1
+}
+
+func (s *useSearcher) findRecv(pkg *types.Package, pos token.Pos) string {
+	if typeName, ok := s.fieldSearcher.Search(pkg, pos); ok {
+		return typeName.Name()
+	}
+	return ""
 }
 
 func (s *useSearcher) findObj(pkg *packages.Package, node ast.Node, valueSpecIndex int) Object {
@@ -378,6 +397,7 @@ type (
 		// ValueSpecIndex is the index of the ValueSpec.Specs that correspond to Obj() if AST() is ValueSpec.
 		// -1 is a invalid value.
 		ValueSpecIndex int
+		Recv           string
 	}
 )
 
@@ -453,10 +473,14 @@ func (s *node) Obj() Object     { return s.obj }
 func (s *node) Type() NodeType  { return s.nodeType }
 func (s *node) Info() *NodeInfo { return s.nodeInfo }
 func (s *node) Name() string    { return s.obj.Name() }
-func (s *node) RecvString(opt ...NodeOption) string { // TODO: recv of field
+func (s *node) RecvString(opt ...NodeOption) string {
 	var conf NodeConfig
 	for _, x := range opt {
 		x(&conf)
+	}
+
+	if recv := s.nodeInfo.Recv; recv != "" {
+		return recv
 	}
 
 	sig, ok := s.obj.Type().(*types.Signature)

@@ -163,6 +163,7 @@ func newSearcher(pkgs []*packages.Package, opt ...search.UseSearcherOption) sear
 		search.NewRefPkgSearcher(search.NewRefSearcher(), defSetList),
 		search.NewObjExtractor(),
 		search.NewTargetExtractor(),
+		search.NewFieldSearcherFromPackages(pkgs),
 		search.DefSetFilter(defSetList),
 		opt...,
 	)

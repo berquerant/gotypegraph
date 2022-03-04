@@ -283,6 +283,7 @@ func doUseSearch(pkgs []*packages.Package, opt ...search.UseSearcherOption) []se
 			search.NewRefPkgSearcher(search.NewRefSearcher(), defSetList),
 			search.NewObjExtractor(),
 			search.NewTargetExtractor(),
+			search.NewFieldSearcherFromPackages(pkgs),
 			search.DefSetFilter(defSetList),
 			opt...,
 		)
