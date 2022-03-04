@@ -36,7 +36,8 @@ var (
 	minWeight        = flag.Int("weight.min", 1, "Min weight for dot.")
 	maxWeight        = flag.Int("weight.max", 100, "Max weight for dot.")
 
-	verbosity = flag.String("v", "info", "Logging verbosity. error, warn, info, verbose or debug.")
+	verbosity = flag.String("v", "info", "Logging verbosity. quiet, error, warn, info, verbose or debug.")
+	quiet     = flag.Bool("quiet", false, "Quiet logs.")
 	logRegexp = flag.String("log.regexp", "", "Regexp to grep logs.")
 )
 
@@ -62,6 +63,9 @@ func initLogger() {
 }
 
 func logLevel() logger.Level {
+	if *quiet {
+		return logger.Quiet
+	}
 	x := strings.ToLower(*verbosity)
 	pref := func(t string) bool { return strings.HasPrefix(x, t) }
 	switch {
@@ -75,6 +79,8 @@ func logLevel() logger.Level {
 		return logger.Warn
 	case pref("e"):
 		return logger.Error
+	case pref("q"):
+		return logger.Quiet
 	default:
 		return logger.Info
 	}
@@ -169,12 +175,19 @@ func newSearcher(pkgs []*packages.Package, opt ...search.UseSearcherOption) sear
 	)
 }
 
+func newProfiler() profile.Profiler {
+	if *quiet {
+		return profile.NewNullProfiler()
+	}
+	return profile.NewProfiler(profile.NewStopwatch())
+}
+
 func main() {
 	flag.Usage = Usage
 	flag.Parse()
 
 	initLogger()
-	profiler := profile.NewProfiler(profile.NewStopwatch())
+	profiler := newProfiler()
 	profiler.Init()
 	logger.Infof("Load packages")
 	pkgs := loadPackages()
@@ -196,5 +209,5 @@ func main() {
 	logger.Infof("Flush")
 	fail(writer.Flush())
 	profiler.Flushed()
-	fmt.Fprint(os.Stderr, profiler.Result().String())
+	profiler.Write(os.Stderr)
 }

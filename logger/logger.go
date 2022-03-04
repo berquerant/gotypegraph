@@ -10,7 +10,8 @@ import (
 type Level int
 
 const (
-	Error Level = iota
+	Quiet Level = iota
+	Error
 	Warn
 	Info
 	Verbose

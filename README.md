@@ -19,7 +19,7 @@ Flags:
         Deny objects whose name matches this.
   -deny.pkg string
         Deny packages whose name matches this.
-  -fontsize,max int
+  -fontsize.max int
         Max fontsize used for text in dot. (default 24)
   -fontsize.min int
         Min fontsize used for text in dot. (default 8)
@@ -35,6 +35,8 @@ Flags:
         Min penwidth used to draw lines in dot. (default 1)
   -private
         Search private definitions.
+  -quiet
+        Quiet logs.
   -stat
         Generate stat graph when type is dot.
   -type string
@@ -42,7 +44,7 @@ Flags:
   -universe
         Search definitions in builtin packages.
   -v string
-        Logging verbosity. error, warn, info, debug or verbose. (default "info")
+        Logging verbosity. quiet, error, warn, info, verbose or debug. (default "info")
   -weight.max int
         Max weight for dot. (default 100)
   -weight.min int
